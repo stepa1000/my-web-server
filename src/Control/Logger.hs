@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- | The logger interface module. It should not define a specific
 -- implementation.
-module Logger
+module Control.Logger
   ( Handle (..),
     Level (..),
     logDebug,

@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 -- | The default implementation of the Logger interface.
-module Logger.Impl
+module Data.Logger.Impl
   ( withHandle,
     Config (..),
     liftHandleBaseIO
@@ -13,7 +13,7 @@ import Control.Monad.Base
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import qualified Logger
+import qualified Control.Logger as Logger
 import qualified System.IO as SIO
 
 data Config = Config
