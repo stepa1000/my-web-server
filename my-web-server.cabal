@@ -27,8 +27,13 @@ library
   exposed-modules:
       API.Server.Web
       Control.Logger
+      Control.Server
+      Control.Server.Authorization
+      Control.Server.Category
+      Control.Server.News
       Data.Logger.Impl
       Data.News
+      Data.Types
       Data.User
       Lib
   other-modules:

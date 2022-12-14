@@ -12,6 +12,7 @@ import Servant.Client
 
 import Data.User
 import Data.News
+import Data.Types
 
 import Data.Text
 import Data.Vector
@@ -19,81 +20,81 @@ import Data.Proxy
 
 import Data.Time.Calendar.OrdinalDate  
 
-data SortBy
-  = SBDate           
-  | SBAuthor
-  | SBCategory
-  | SBCountPhoto
-  deriving Generic
-
-instance ToHttpApiData SortBy where
-  toUrlPiece SBDate = "date"
-  toUrlPiece SBAuthor = "author"
-  toUrlPiece SBCategory = "category"
-  toUrlPiece SBCountPhoto = "photo"
-   
+{- 
 type OffSet = Int
 type Limit = Int
 
+type DayAt = Day
+type DayUntil = Day
+type DaySince = Day
+
+type Aothor = Text
+type Category = Text
+type NewsName = Text
+type Content = Text
+
+type ForString = Text
+type FlagPublished = Bool
+-}
 type API = "get_news" :> "public"
-                      :> QueryParams "created_at" Day
-                      :> QueryParams "created_until" Day
-                      :> QueryParams "created_since" Day
-                      :> QueryParams "aothor_name" Text
-                      :> QueryParams "category" Text
-                      :> QueryParams "news_name" Text
-                      :> QueryParams "content" Text
-                      :> QueryParams "for_string" Text
-                      :> QueryParams "published" Bool
-                      :> QueryParams "offset" OffSet
-                      :> QueryParams "limit" Limit
-                      :> QueryParams "sort_by" SortBy
+                      :> QueryParam "created_at" DayAt
+                      :> QueryParam "created_until" DayUntil
+                      :> QueryParam "created_since" DaySince
+                      :> QueryParam "aothor_name" Name
+                      :> QueryParam "category" Category
+                      :> QueryParam "news_name" NewsName
+                      :> QueryParam "content" Content
+                      :> QueryParam "for_string" ForString
+                      -- :> QueryParams "published" FlagPublished
+                      :> QueryParam "sort_by" SortBy
+                      :> QueryParam "offset" OffSet
+                      :> QueryParam "limit" Limit
                       :> Get '[JSON] [News]
       :<|> "get_news" :> "private" 
                       :> BasicAuth "user" UserPublic 
-                      :> QueryParams "created_at" Day
-                      :> QueryParams "created_until" Day
-                      :> QueryParams "created_since" Day
-                      :> QueryParams "aothor_name" Text
-                      :> QueryParams "category" Text
-                      :> QueryParams "news_name" Text
-                      :> QueryParams "content" Text
-                      :> QueryParams "for_string" Text
-                      :> QueryParams "sort_by" SortBy
-                      :> QueryParams "published" Bool
-                      :> QueryParams "offset" OffSet
-                      :> QueryParams "limit" Limit
+                      :> QueryParam "created_at" DayAt
+                      :> QueryParam "created_until" DayUntil
+                      :> QueryParam "created_since" DaySince
+                      :> QueryParam "aothor_name" Name
+                      :> QueryParam "category" Category
+                      :> QueryParam "news_name" NewsName
+                      :> QueryParam "content" Content
+                      :> QueryParam "for_string" ForString
+                      :> QueryParam "published" FlagPublished
+                      :> QueryParam "sort_by" SortBy
+                      :> QueryParam "offset" OffSet
+                      :> QueryParam "limit" Limit
                       :> Get '[JSON] [News] 
       :<|> "category" :> "create" :> BasicAuth "user" UserPublic -- realms ???
-                                  :> QueryParams "root" Text
-                                  :> QueryParams "category_name" Text
+                                  :> QueryParam "root" Category
+                                  :> QueryParam' '[Strict] "category_name" Category
                                   :> Get '[JSON] NewsCategory 
       :<|> "category" :> "get_tree" :> Get '[JSON] NewsCategory
       :<|> "category" :>  "change" :> BasicAuth "user" UserPublic
-                                   :> QueryParams "category_name" Text
-                                   :> QueryParams "new_root" Text
-                                   :> QueryParams "new_name" Text
+                                   :> QueryParam' '[Strict] "category_name" Text
+                                   :> QueryParam "new_root" Text
+                                   :> QueryParam "new_name" Text
                                    :> Get '[JSON] NewsCategory
       :<|> "create_news" :> "new" :> BasicAuth "user" UserPublic
                                   :> ReqBody '[JSON] NewsCreate
                                   :> Get '[JSON] News
       :<|> "create_news" :> "edit" :> BasicAuth "user" UserPublic
-                                   :> QueryParams "news_name" Text
-                                   :> QueryParams "text" Text
-                                   :> QueryParams "news_new_name" Text
-                                   :> QueryParams "category" Text
-                                   :> QueryParams "public" Bool
+                                   :> QueryParam "news_name" NameNews
+                                   :> QueryParam "text" Content
+                                   :> QueryParam "news_new_name" NameNews
+                                   :> QueryParam "category" Content
+                                   :> QueryParam "public" FlagPublished
                                    :> ReqBody' '[Optional, Strict] '[JSON] (Vector PhotoURL)
                                    :> Get '[JSON] News
       :<|> "user" :> "create" :> BasicAuth "user" UserPublic
-                              :> QueryParams "name" Text
-                              :> QueryParams "login" Text
-                              :> QueryParams "password" Text
-                              :> QueryParams "make_news" Bool
-                              :> QueryParams "admin" Bool
+                              :> QueryParam "name" Name
+                              :> QueryParam "login" Login
+                              :> QueryParam "password" Password
+                              :> QueryParam "make_news" FlagMakeNews
+                              :> QueryParam "admin" FlagAdmin
                               :> Get '[JSON] UserPublic
-      :<|> "user" :> "list" :> QueryParams "offset" OffSet
-                            :> QueryParams "limit" Limit
+      :<|> "user" :> "list" :> QueryParam "offset" OffSet
+                            :> QueryParam "limit" Limit
                             :> Get '[JSON] [UserPublic]
                     
       -- :<|> "autorization" :> QueryParams "login" :> QueryParams "password" :> Get '[JSON] UserPublic
@@ -101,52 +102,52 @@ type API = "get_news" :> "public"
 api :: Proxy API
 api = Proxy
 
-getNewsPublic :: Maybe Day 
-              -> Maybe Day 
-              -> Maybe Day 
-              -> Maybe Text    
-              -> Maybe Text
-              -> Maybe Text
-              -> Maybe Text
-              -> Maybe Text
-              -> Maybe Bool
+getNewsPublic :: Maybe DayAt
+              -> Maybe DayUntil 
+              -> Maybe DaySince 
+              -> Maybe Name    
+              -> Maybe Category
+              -> Maybe NewsName
+              -> Maybe Content
+              -> Maybe ForString
+              -- -> [FlagPublished]
+              -> Maybe SortBy    
               -> Maybe OffSet
               -> Maybe Limit
-              -> Maybe SortBy
               -> ClientM [News]
 getNewsPrivate :: BasicAuthData
-               -> Maybe Day 
-               -> Maybe Day 
-               -> Maybe Day 
-               -> Maybe Text    
-               -> Maybe Text
-               -> Maybe Text
-               -> Maybe Text
-               -> Maybe Text
-               -> Maybe Bool
+               -> Maybe DayAt 
+               -> Maybe DayUntil 
+               -> Maybe DaySince 
+               -> Maybe Name    
+               -> Maybe Category
+               -> Maybe NewsName
+               -> Maybe Content
+               -> Maybe ForString
+               -> Maybe FlagPublished
+               -> Maybe SortBy    
                -> Maybe OffSet
                -> Maybe Limit
-               -> Maybe SortBy
                -> ClientM [News]
-categoryCreate :: BasicAuthData -> Maybe Text -> Maybe Text -> ClientM NewsCategory
+categoryCreate :: BasicAuthData -> Maybe Category -> Maybe Category -> ClientM NewsCategory
 categoryGetTree :: ClientM NewsCategory
-categoryChange :: BasicAuthData -> Maybe Text -> Maybe Text -> Maybe Text -> ClientM NewsCategory
+categoryChange :: BasicAuthData -> Maybe Category -> Maybe Category -> Maybe Category -> ClientM NewsCategory
 createNewsNew :: BasicAuthData -> NewsCreate -> ClientM News
 createNewsEdit :: BasicAuthData 
-               -> Maybe Text   
-               -> Maybe Text
-               -> Maybe Text
-               -> Maybe Text
-               -> Maybe Bool
+               -> Maybe NameNews -- old   
+               -> Maybe Content
+               -> Maybe NameNews -- new
+               -> Maybe Content
+               -> Maybe FlagPublished
                -> Vector PhotoURL
                -> ClientM News
 userCreate :: BasicAuthData 
-           -> Maybe Text
-           -> Maybe Text
-           -> Maybe Text
-           -> Maybe Bool
-           -> Maybe Bool
+           -> Maybe Name
+           -> Maybe Login
+           -> Maybe Password
+           -> Maybe FlagMakeNews
+           -> Maybe FlagAdmin
            -> ClientM UserPublic
-userList :: Maybe OffSet -> [Limit] -> ClientM [UserPublic]
+userList :: Maybe OffSet -> Maybe Limit -> ClientM [UserPublic]
 
 getNewsPublic :<|> getNewsPrivate :<|> categoryCreate :<|> categoryGetTree :<|> categoryChange :<|> createNewsNew :<|> createNewsEdit :<|> userCreate :<|> userList = client api

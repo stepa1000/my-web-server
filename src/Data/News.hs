@@ -13,25 +13,27 @@ import qualified Data.ByteString as B
 import Data.Time.Calendar.OrdinalDate  -- .Clock
 import Data.Aeson
 
+import Data.Types
+
 type NewsCategory = Tree Text
 
 type PhotoURL = Text
 
 data News = News
-  { nameNews :: Text
-  , loginAothor :: Text
-  , nameAothor :: Text
+  { nameNews :: NameNews
+  , loginAothor :: Login
+  , nameAothor :: Name
   , dateCreationNews :: Day -- UTCTime
-  , categoryNews :: Text
-  , textNews :: Text
+  , categoryNews :: Category
+  , textNews :: Content
   , photoNews :: Vector PhotoURL
-  , publicNews :: Bool
+  , publicNews :: FlagPublished
   } deriving (Generic, ToJSON, FromJSON)
 
 data NewsCreate = NewsCreate 
-  { nameNewsCreate :: Text -- UTCTime
-  , categoryNewsCreate :: Text
-  , textNewsCreate :: Text
+  { nameNewsCreate :: NameNews -- UTCTime
+  , categoryNewsCreate :: Category
+  , textNewsCreate :: Content
   , photoNewsCreate :: Vector PhotoURL
-  , publicNewsCreate :: Bool
+  , publicNewsCreate :: FlagPublished
   } deriving (Generic, ToJSON)
