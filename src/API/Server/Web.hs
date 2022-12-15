@@ -71,9 +71,9 @@ type API = "get_news" :> "public"
                                   :> Get '[JSON] NewsCategory 
       :<|> "category" :> "get_tree" :> Get '[JSON] NewsCategory
       :<|> "category" :>  "change" :> BasicAuth "user" UserPublic
-                                   :> QueryParam' '[Strict] "category_name" Text
-                                   :> QueryParam "new_root" Text
-                                   :> QueryParam "new_name" Text
+                                   :> QueryParam' '[Strict] "category_name" Category
+                                   :> QueryParam "new_root" Category
+                                   :> QueryParam "new_name" Category
                                    :> Get '[JSON] NewsCategory
       :<|> "create_news" :> "new" :> BasicAuth "user" UserPublic
                                   :> ReqBody '[JSON] NewsCreate
@@ -83,8 +83,11 @@ type API = "get_news" :> "public"
                                    :> QueryParam "text" Content
                                    :> QueryParam "news_new_name" NameNews
                                    :> QueryParam "category" Content
+                                   -- :> QueryParams "photos_url" PhotoURL
+                                   -- :> QueryParams "new_photos" ByteString
                                    :> QueryParam "public" FlagPublished
-                                   :> ReqBody' '[Optional, Strict] '[JSON] (Vector PhotoURL)
+                                   :> ReqBody' '[Optional, Strict] '[JSON] (Vector Photo)
+                                   :> ReqBody' '[Optional, Strict] '[JSON] (Vector ByteString)
                                    :> Get '[JSON] News
       :<|> "user" :> "create" :> BasicAuth "user" UserPublic
                               :> QueryParam "name" Name
@@ -96,6 +99,7 @@ type API = "get_news" :> "public"
       :<|> "user" :> "list" :> QueryParam "offset" OffSet
                             :> QueryParam "limit" Limit
                             :> Get '[JSON] [UserPublic]
+      :<|> "photo" :> "get" :> QueryParam "name_photo" Photo :> Get '[JSON] ByteString
                     
       -- :<|> "autorization" :> QueryParams "login" :> QueryParams "password" :> Get '[JSON] UserPublic
 
@@ -139,7 +143,8 @@ createNewsEdit :: BasicAuthData
                -> Maybe NameNews -- new
                -> Maybe Content
                -> Maybe FlagPublished
-               -> Vector PhotoURL
+               -> Vector Photo
+               -> Vector ByteString
                -> ClientM News
 userCreate :: BasicAuthData 
            -> Maybe Name
@@ -149,5 +154,6 @@ userCreate :: BasicAuthData
            -> Maybe FlagAdmin
            -> ClientM UserPublic
 userList :: Maybe OffSet -> Maybe Limit -> ClientM [UserPublic]
+photoGet :: Maybe Photo -> ClientM ByteString
 
-getNewsPublic :<|> getNewsPrivate :<|> categoryCreate :<|> categoryGetTree :<|> categoryChange :<|> createNewsNew :<|> createNewsEdit :<|> userCreate :<|> userList = client api
+getNewsPublic :<|> getNewsPrivate :<|> categoryCreate :<|> categoryGetTree :<|> categoryChange :<|> createNewsNew :<|> createNewsEdit :<|> userCreate :<|> userList :<|> photoGet= client api

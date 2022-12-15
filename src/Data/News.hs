@@ -35,5 +35,6 @@ data NewsCreate = NewsCreate
   , categoryNewsCreate :: Category
   , textNewsCreate :: Content
   , photoNewsCreate :: Vector PhotoURL
+  , newPhotoNewsCreate :: Vector B.ByteString
   , publicNewsCreate :: FlagPublished
   } deriving (Generic, ToJSON)

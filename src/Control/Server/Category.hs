@@ -13,8 +13,9 @@ import Data.Types
 data Handle m = Handle
   { hGetCategory :: m NewsCategory
   -- , hModifyCategory :: (NewsCateory -> NewsCategory) -> m ()
-  , hChangeCategory :: Category -> Maybe Category -> Category -> m ()
+  , hChangeCategory :: Category -> Maybe Category -> Maybe Category -> m ()
+  , hCreateCategory :: Maybe Category -> Category -> m ()
   }
 
-handleCategoryCreate :: Monad m => Handle m -> Maybe Category -> Category -> m ()
-handleCategoryCreate = error "Not implement"
+-- handleCategoryCreate :: Monad m => Handle m -> Maybe Category -> Category -> m ()
+-- handleCategoryCreate = error "Not implement"

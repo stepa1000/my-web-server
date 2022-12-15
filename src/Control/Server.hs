@@ -31,10 +31,8 @@ handleServerFind h Nothing
 handleServerFind h (Just logined) 
     (Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit) = do
   b <- ServerAuthorization.hCheckAccount 
-    (handleAuthorization h) 
-    (loginLogined logined) 
-    (passwordLogined logined )
-  if b
+    (handleAuthorization h) logined
+  if (isJust b)
   then do
     ServerNews.handleFind (handleNews h) $
       Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit
@@ -47,7 +45,35 @@ handleCategoryCreate :: Monad m
                      -> Logined
                      -> Maybe Category -- root
                      -> Category
-handleCategoryCreate = error "Not implement"
+                     -> m NewsCategory
+handleCategoryCreate h logined mc c = do -- error "Not implement"
+  userpublic <- ServerAuthorization.hCheckAccount 
+    (handleAuthorization h) logined
+  case userpublic of
+    (Just (UserPublic _ _ _ True _)) -> do
+      ServerCategory.hCreateCategory (handleCategory h) mc c
+      ServerCategory.hGetCategory (handleCategory h)
+    _ -> ServerCategory.hGetCategory (handleCategory h)
+
+handleCategoryGet :: Monad m => Handle m -> m NewsCategory
+handleCategoryGet h = ServerCategory.hGetCategory (handleCategory h)
+
+handleCategoryChange :: Monad m 
+                     => Handle m 
+                     -> Logined
+                     -> Category 
+                     -> Maybe Category 
+                     -> Maybe Category
+                     -> m NewsCategory
+handleCategoryChange h logined cname croot cnewname = do
+  userpublic <- ServerAuthorization.hCheckAccount 
+    (handleAuthorization h) logined
+  case userpublic of
+    (Just (UserPublic _ _ _ True _)) -> do
+      ServerCategory.hChangeCategory (handleCategory h) cname croot cnewname
+      ServerCategory.hGetCategory (handleCategory h)
+    _ -> ServerCategory.hGetCategory (handleCategory h)
+
 
 {-
 data Event 
