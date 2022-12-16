@@ -26,7 +26,9 @@ type Name = Text
 type NameNews = Text
 type Password = Text
 
+type Photo = Text
 type ForString = Text
+type Base64 = Text
 
 type FlagPublished = Bool
 type FlagMakeNews = Bool

@@ -5,6 +5,7 @@ import Prelude as P
 import Control.Applicative
 
 import Data.Text
+import Data.ByteString
 import Data.Vector as V
 import Data.Time.Calendar.OrdinalDate
 
@@ -14,7 +15,7 @@ import Data.News
 import Data.Types
 
 data Handle m = Handle
-  { handlePhoto :: Photo.Handle
+  { handlePhoto :: Photo.Handle m
   , hGetNewsDay :: DayAt -> DayUntil -> m [News]
   , hPutNews :: News -> m () -- Bool
   , hGetNews :: Name -> NewsName -> m (Maybe News)
@@ -22,12 +23,55 @@ data Handle m = Handle
   , hGetDay :: m Day
   }
 
-handleCreateNews :: Monad m => Handle m -> Login -> Name -> NewsCreate -> m News
-handleCreateNews h l name nc = do
+handleEditNews :: Monad m 
+               => Handle m
+               -> Name 
+               -> NameNews -- old   
+               -> Maybe Content
+               -> Maybe NameNews -- new
+               -> Maybe Category
+               -> Maybe FlagPublished
+               -> Vector Photo
+               -> Vector Base64 -- ByteString
+               -> m (Maybe News)
+handleEditNews h author nameN content newNameNews category flagP vP vB64 = do
+  vnpic <- P.mapM (Photo.hPutPhoto (handlePhoto h) ) vB64
+  mn <- hGetNews h author nameN
+  case mn of
+    (Just n) -> do
+      let n2 = (editNews n) {photoNews = vP V.++ vnpic}
+      hModifNews h author nameN (const n2)
+      return $ Just n2
+    _ -> return Nothing
+  where
+    editNews = editNewsContent content . 
+      editNewsNameNews newNameNews . 
+      editNewsCategory category . 
+      editFlagPublished flagP
+--    newContent = maybe
+
+editNewsContent :: Maybe Content -> News -> News
+editNewsContent (Just c) n = n {categoryNews = c}
+editNewsContent Nothing n = n
+
+editNewsNameNews :: Maybe NameNews -> News -> News
+editNewsNameNews (Just nn) n = n {nameNews = nn}
+editNewsNameNEws Nothing n = n
+
+editNewsCategory :: Maybe Category -> News -> News
+editNewsCategory (Just c) n = n {categoryNews = c}
+editNewsCategory Nothing n = n
+
+editFlagPublished :: Maybe FlagPublished -> News -> News
+editFlagPublished (Just f) n = n {publicNews = f}
+editFlagPublished Nothing n = n
+
+handleCreateNews :: Monad m => Handle m {- > Vector ByteString -} -> Login -> Name -> NewsCreate -> m News
+handleCreateNews h {- vbs -} l name nc = do
   let vbs = newPhotoNewsCreate nc
-  vnpic <- mapM (\bs-> Photo.hPutPhoto (handlePhoto h) ) vbs
+  vnpic <- P.mapM (Photo.hPutPhoto (handlePhoto h) ) vbs
   d <- hGetDay h
-  let news = n d ((photoNewCreate nc) V.++ vnpic)
+  let news = n d ((photoNewsCreate nc) V.++ vnpic)
   hPutNews h news
   return $ news
   where
@@ -39,7 +83,7 @@ handleCreateNews h l name nc = do
       , categoryNews = categoryNewsCreate nc
       , textNews = textNewsCreate nc
       , photoNews = vp
-      , publicNews = publicNewsCreate
+      , publicNews = publicNewsCreate nc
       }
 
 -- handleGetNewsDay :: Handle

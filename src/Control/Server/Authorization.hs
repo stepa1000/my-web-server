@@ -16,9 +16,28 @@ data Handle m = Handle
   , hUserList :: m [UserPublic]
   , hCheckAccount :: Login -> Password -> m (Maybe UserPublic)
   , hGetAccount :: Login -> m (Maybe UserPublic)
+  , hAuthorizationFail :: m ()
+  , hAdminCheckFail :: m ()
+  , hCretorNewsCheckFail :: m ()
   }
 
--- handleForAccount :: Handle m -> Logined -> m a -> m a -> m a
+handleWithAccount :: Monad m => Handle m -> Logined -> (UserPublic -> m a) -> m (Maybe a)
+handleWithAccount h l f = do
+  mu <- handleCheckAccount h l
+  case mu of
+    (Just u) -> Just <$> f u
+    _ -> do
+      hAuthorizationFail h
+      return Nothing
+
+handleCheckAccountStrong :: Monad m => Handle m -> Logined -> m (Maybe UserPublic)
+handleCheckAccountStrong h l = do
+  mu <- handleCheckAccount h l
+  case mu of
+    (Just u) -> return $ Just u
+    _ -> do
+      hAuthorizationFail
+      return Nothing
 
 handleCheckAccount :: Handle m -> Logined -> m (Maybe UserPublic)
 handleCheckAccount h logined 

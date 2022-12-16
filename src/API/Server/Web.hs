@@ -15,6 +15,7 @@ import Data.News
 import Data.Types
 
 import Data.Text
+import Data.ByteString
 import Data.Vector
 import Data.Proxy
 
@@ -36,6 +37,9 @@ type Content = Text
 type ForString = Text
 type FlagPublished = Bool
 -}
+
+-- instance ToHttpApiData ByteString where
+
 type API = "get_news" :> "public"
                       :> QueryParam "created_at" DayAt
                       :> QueryParam "created_until" DayUntil
@@ -77,17 +81,18 @@ type API = "get_news" :> "public"
                                    :> Get '[JSON] NewsCategory
       :<|> "create_news" :> "new" :> BasicAuth "user" UserPublic
                                   :> ReqBody '[JSON] NewsCreate
+                                  -- :> QueryParams "new_photos" ByteString
                                   :> Get '[JSON] News
       :<|> "create_news" :> "edit" :> BasicAuth "user" UserPublic
                                    :> QueryParam "news_name" NameNews
                                    :> QueryParam "text" Content
                                    :> QueryParam "news_new_name" NameNews
-                                   :> QueryParam "category" Content
+                                   :> QueryParam "category" Category
                                    -- :> QueryParams "photos_url" PhotoURL
                                    -- :> QueryParams "new_photos" ByteString
                                    :> QueryParam "public" FlagPublished
-                                   :> ReqBody' '[Optional, Strict] '[JSON] (Vector Photo)
-                                   :> ReqBody' '[Optional, Strict] '[JSON] (Vector ByteString)
+                                   :> QueryParams "photos" Photo
+                                   :> QueryParams "new_photos" Base64
                                    :> Get '[JSON] News
       :<|> "user" :> "create" :> BasicAuth "user" UserPublic
                               :> QueryParam "name" Name
@@ -99,7 +104,7 @@ type API = "get_news" :> "public"
       :<|> "user" :> "list" :> QueryParam "offset" OffSet
                             :> QueryParam "limit" Limit
                             :> Get '[JSON] [UserPublic]
-      :<|> "photo" :> "get" :> QueryParam "name_photo" Photo :> Get '[JSON] ByteString
+      :<|> "photo" :> "get" :> QueryParam "name_photo" Photo :> Get '[JSON] Base64 -- ByteString
                     
       -- :<|> "autorization" :> QueryParams "login" :> QueryParams "password" :> Get '[JSON] UserPublic
 
@@ -136,15 +141,15 @@ getNewsPrivate :: BasicAuthData
 categoryCreate :: BasicAuthData -> Maybe Category -> Maybe Category -> ClientM NewsCategory
 categoryGetTree :: ClientM NewsCategory
 categoryChange :: BasicAuthData -> Maybe Category -> Maybe Category -> Maybe Category -> ClientM NewsCategory
-createNewsNew :: BasicAuthData -> NewsCreate -> ClientM News
+createNewsNew :: BasicAuthData -> NewsCreate {- > [ByteString]-} -> ClientM News
 createNewsEdit :: BasicAuthData 
                -> Maybe NameNews -- old   
                -> Maybe Content
                -> Maybe NameNews -- new
                -> Maybe Content
                -> Maybe FlagPublished
-               -> Vector Photo
-               -> Vector ByteString
+               -> [Photo]
+               -> [Base64] -- ByteString
                -> ClientM News
 userCreate :: BasicAuthData 
            -> Maybe Name
@@ -154,6 +159,6 @@ userCreate :: BasicAuthData
            -> Maybe FlagAdmin
            -> ClientM UserPublic
 userList :: Maybe OffSet -> Maybe Limit -> ClientM [UserPublic]
-photoGet :: Maybe Photo -> ClientM ByteString
+photoGet :: Maybe Photo -> ClientM Base64 -- ByteString
 
 getNewsPublic :<|> getNewsPrivate :<|> categoryCreate :<|> categoryGetTree :<|> categoryChange :<|> createNewsNew :<|> createNewsEdit :<|> userCreate :<|> userList :<|> photoGet= client api
