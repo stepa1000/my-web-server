@@ -18,7 +18,7 @@ data Handle m = Handle
   , hGetAccount :: Login -> m (Maybe UserPublic)
   , hAuthorizationFail :: m ()
   , hAdminCheckFail :: m ()
-  , hCretorNewsCheckFail :: m ()
+  , hCreatorNewsCheckFail :: m ()
   }
 
 handleWithAccount :: Monad m => Handle m -> Logined -> (UserPublic -> m a) -> m (Maybe a)
@@ -36,7 +36,7 @@ handleCheckAccountStrong h l = do
   case mu of
     (Just u) -> return $ Just u
     _ -> do
-      hAuthorizationFail
+      hAuthorizationFail h
       return Nothing
 
 handleCheckAccount :: Handle m -> Logined -> m (Maybe UserPublic)

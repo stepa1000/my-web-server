@@ -32,6 +32,8 @@ dependencies:
 - bytestring
 - containers
 - vector
+- beam-core
+- beam-postgres
 
 ghc-options:
 - -Wall

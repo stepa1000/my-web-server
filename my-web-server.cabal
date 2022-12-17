@@ -45,6 +45,8 @@ library
   build-depends:
       aeson
     , base >=4.7 && <5
+    , beam-core
+    , beam-postgres
     , bytestring
     , config-value
     , containers
@@ -67,6 +69,8 @@ executable my-web-server-exe
   build-depends:
       aeson
     , base >=4.7 && <5
+    , beam-core
+    , beam-postgres
     , bytestring
     , config-value
     , containers
@@ -91,6 +95,8 @@ test-suite my-web-server-test
   build-depends:
       aeson
     , base >=4.7 && <5
+    , beam-core
+    , beam-postgres
     , bytestring
     , config-value
     , containers

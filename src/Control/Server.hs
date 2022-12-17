@@ -35,7 +35,7 @@ handleServerFind h Nothing
     Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString (Just True) mSortBy mOffSet mLimit
 handleServerFind h (Just logined) 
     (Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit) = do
-  b <- ServerAuthorization.handleCheckAccount 
+  b <- ServerAuthorization.handleCheckAccountStrong 
     (handleAuthorization h) logined
   if (isJust b)
   then do
@@ -52,13 +52,15 @@ handleCategoryCreate :: Monad m
                      -> Category
                      -> m NewsCategory
 handleCategoryCreate h logined mc c = do -- error "Not implement"
-  userpublic <- ServerAuthorization.handleCheckAccount 
+  userpublic <- ServerAuthorization.handleCheckAccountStrong 
     (handleAuthorization h) logined
   case userpublic of
     (Just (UserPublic _ _ _ True _)) -> do
       ServerCategory.hCreateCategory (handleCategory h) mc c
       ServerCategory.hGetCategory (handleCategory h)
-    _ -> ServerCategory.hGetCategory (handleCategory h)
+    _ -> do 
+      ServerAuthorization.hAdminCheckFail (handleAuthorization h) 
+      ServerCategory.hGetCategory (handleCategory h)
 
 handleCategoryGet :: Monad m => Handle m -> m NewsCategory
 handleCategoryGet h = ServerCategory.hGetCategory (handleCategory h)
@@ -71,13 +73,15 @@ handleCategoryChange :: Monad m
                      -> Maybe Category
                      -> m NewsCategory
 handleCategoryChange h logined cname croot cnewname = do
-  userpublic <- ServerAuthorization.handleCheckAccount 
+  userpublic <- ServerAuthorization.handleCheckAccountStrong 
     (handleAuthorization h) logined
   case userpublic of
     (Just (UserPublic _ _ _ True _)) -> do
       ServerCategory.hChangeCategory (handleCategory h) cname croot cnewname
       ServerCategory.hGetCategory (handleCategory h)
-    _ -> ServerCategory.hGetCategory (handleCategory h)
+    _ -> do
+      ServerAuthorization.hAdminCheckFail (handleAuthorization h)
+      ServerCategory.hGetCategory (handleCategory h)
 
 handleCreateNewsNew :: Monad m => Handle m -> Logined -> NewsCreate -> m (Maybe News)
 handleCreateNewsNew h logined nc = do
@@ -87,7 +91,7 @@ handleCreateNewsNew h logined nc = do
     (Just (UserPublic name login _ _ True)) -> do
       fmap Just $ ServerNews.handleCreateNews (handleNews h) login name nc
     _ -> do
-      ServerAuthorization.hCreatorNewsCheckFail
+      ServerAuthorization.hCreatorNewsCheckFail (handleAuthorization h) 
       return Nothing
 
 handleServerEditNews :: Monad m 
@@ -102,22 +106,27 @@ handleServerEditNews :: Monad m
                      -> Vector Base64 -- ByteString
                      -> m (Maybe News)
 handleServerEditNews h logined nameN mContent mNameNews mCategory mFlagP vPh vB64 = do
-  userpublic <- ServerAuthorization.handleCheckAccount 
+  userpublic <- ServerAuthorization.handleCheckAccountStrong 
     (handleAuthorization h) logined
   case userpublic of
     (Just (UserPublic name _ _ _ True)) -> do
       ServerNews.handleEditNews (handleNews h) name nameN mContent mNameNews mCategory mFlagP vPh vB64
+    _ -> do
+      ServerAuthorization.hCreatorNewsCheckFail (handleAuthorization h) 
+      return Nothing
   
 handleUserCreate :: Monad m
                  => Handle m -> Logined -> Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> m (Maybe UserPublic)
 handleUserCreate h logined name login password fMakeNews fAdmin = do
-  userpublic <- ServerAuthorization.handleCheckAccount 
+  userpublic <- ServerAuthorization.handleCheckAccountStrong 
     (handleAuthorization h) logined
   case userpublic of
     (Just (UserPublic _ _ _ True _)) -> do
       u <- ServerAuthorization.hCreateUser (handleAuthorization h) name login password fMakeNews fAdmin
       return $ Just u
-    _ -> return Nothing
+    _ -> do
+      ServerAuthorization.hAdminCheckFail (handleAuthorization h)
+      return Nothing
 
 handleUserList :: Monad m => Handle m -> m [UserPublic]
 handleUserList h = do
