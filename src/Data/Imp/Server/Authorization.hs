@@ -40,6 +40,9 @@ data Config = Config
 withServerAuthorization :: Config -> (ServerAuthorization.Handle IO -> IO a) -> IO a
 withServerAuthorization c f = error "Not implement"
 
+hUserList :: Connection -> Config -> OffSet -> Limit -> IO [UserPublic]
+hUserList conn config offset limit = error "Not implement"
+
 hCreateUser :: Connection -> Config ->  Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> IO UserPublic
 hCreateUser c conf name login password flagMN flagA = do
   l <- runConduitRes @IO $ (streamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ UserT {_loginUserT = login})

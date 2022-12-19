@@ -44,7 +44,8 @@ library
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      aeson
+      QuickCheck
+    , aeson
     , base >=4.7 && <5
     , beam-core
     , beam-postgres
@@ -54,6 +55,7 @@ library
     , config-value
     , containers
     , cryptonite
+    , hspec
     , memory
     , servant
     , servant-client
@@ -72,7 +74,8 @@ executable my-web-server-exe
       app
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      aeson
+      QuickCheck
+    , aeson
     , base >=4.7 && <5
     , beam-core
     , beam-postgres
@@ -82,6 +85,7 @@ executable my-web-server-exe
     , config-value
     , containers
     , cryptonite
+    , hspec
     , memory
     , my-web-server
     , servant
@@ -97,12 +101,14 @@ test-suite my-web-server-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      AuthorizationSpec
       Paths_my_web_server
   hs-source-dirs:
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      aeson
+      QuickCheck
+    , aeson
     , base >=4.7 && <5
     , beam-core
     , beam-postgres
@@ -112,6 +118,7 @@ test-suite my-web-server-test
     , config-value
     , containers
     , cryptonite
+    , hspec
     , memory
     , my-web-server
     , servant

@@ -3,7 +3,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Data.Imp.Server.Authorization where
+module AuthorizationSpec (spec) where
 
 import Prelude as P
 
@@ -26,10 +26,18 @@ import Data.Time.Clock
 import Crypto.Hash
 import Crypto.Hash.IO
 
+import Test.Hspec (Expectation, Spec, describe, it, shouldBe, shouldNotBe, shouldSatisfy)
+import Test.QuickCheck (NonNegative (..), property, (==>))
+
 import Data.News
 import Data.User
 import Data.Types
 
-import qualified Control.Server.Authorization as ServerAuthorization
+import qualified Control.Server.Authorization as SAuthorization
+import qualified Data.Imp.Server.Authorization as ImpSAuthorization
 
+spec :: Spec
+spec = 
+  describe ""
 
+testDBConnect = defaultConnectInfo {connectUser="test", connectDatabase = "testDB"}

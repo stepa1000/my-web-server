@@ -13,7 +13,7 @@ import Data.Types
 
 data Handle m = Handle 
   { hCreateUser :: Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> m UserPublic
-  , hUserList :: m [UserPublic]
+  , hUserList :: OffSet -> Limit -> m [UserPublic]
   , hCheckAccount :: Login -> Password -> m (Maybe UserPublic)
   , hGetAccount :: Login -> m (Maybe UserPublic)
   , hAuthorizationFail :: m ()
