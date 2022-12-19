@@ -32,6 +32,7 @@ library
       Control.Server.Category
       Control.Server.News
       Control.Server.Photo
+      Data.Imp.Server.Authorization
       Data.Logger.Impl
       Data.News
       Data.Types
@@ -47,9 +48,13 @@ library
     , base >=4.7 && <5
     , beam-core
     , beam-postgres
+    , binary
     , bytestring
+    , conduit
     , config-value
     , containers
+    , cryptonite
+    , memory
     , servant
     , servant-client
     , servant-server
@@ -71,9 +76,13 @@ executable my-web-server-exe
     , base >=4.7 && <5
     , beam-core
     , beam-postgres
+    , binary
     , bytestring
+    , conduit
     , config-value
     , containers
+    , cryptonite
+    , memory
     , my-web-server
     , servant
     , servant-client
@@ -97,9 +106,13 @@ test-suite my-web-server-test
     , base >=4.7 && <5
     , beam-core
     , beam-postgres
+    , binary
     , bytestring
+    , conduit
     , config-value
     , containers
+    , cryptonite
+    , memory
     , my-web-server
     , servant
     , servant-client

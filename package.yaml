@@ -34,6 +34,12 @@ dependencies:
 - vector
 - beam-core
 - beam-postgres
+- conduit
+- memory
+- binary
+- cryptonite
+- hspec
+- QuickCheck
 
 ghc-options:
 - -Wall
