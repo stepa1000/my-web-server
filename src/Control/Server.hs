@@ -128,9 +128,9 @@ handleUserCreate h logined name login password fMakeNews fAdmin = do
       ServerAuthorization.hAdminCheckFail (handleAuthorization h)
       return Nothing
 
-handleUserList :: Monad m => Handle m -> m [UserPublic]
-handleUserList h = do
-  ServerAuthorization.hUserList (handleAuthorization h)
+handleUserList :: Monad m => Handle m -> OffSet -> Limit -> m [UserPublic]
+handleUserList h offset limit = do
+  ServerAuthorization.hUserList (handleAuthorization h) offset limit
 
 handlePhotoGet :: Monad m => Handle m -> Photo -> m (Maybe Base64)
 handlePhotoGet h p = do

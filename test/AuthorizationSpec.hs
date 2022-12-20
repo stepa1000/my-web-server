@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module AuthorizationSpec (spec) where
 
@@ -10,7 +11,7 @@ import Prelude as P
 import GHC.Generics
 
 import Database.Beam
-import Database.Beam.Postgres
+import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
 import Conduit
 
@@ -26,7 +27,8 @@ import Data.Time.Clock
 import Crypto.Hash
 import Crypto.Hash.IO
 
-import Test.Hspec (Expectation, Spec, describe, it, shouldBe, shouldNotBe, shouldSatisfy)
+import Test.Hspec 
+  (Expectation, Spec, around, describe, it, shouldBe, shouldNotBe, shouldSatisfy)
 import Test.QuickCheck (NonNegative (..), property, (==>))
 
 import Data.News
@@ -38,6 +40,41 @@ import qualified Data.Imp.Server.Authorization as ImpSAuthorization
 
 spec :: Spec
 spec = 
-  describe ""
+  around withDatabase $
+    describe "server authorization" $
+      it "hCreateUser" $ \ (h,c) -> do
+        let name = "name1"
+        let login = "login1"
+        let password = "password1"
+        let fmn = False
+        let fa = False
+        up <- SAuthorization.hCreateUser h name login password fmn fa
+        BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
+          (\a-> ImpSAuthorization._loginUserT a ==. "login1")
+        (UTCTime day _) <- getCurrentTime
+        up `shouldBe` (UserPublic 
+          { nameUser = name
+          , loginUser = login
+          , dateCreationUser = day
+          , adminUser = fa
+          , makeNewsUser = fmn 
+          }
+          )
+        
+    
+{-  (runIO $ ImpSAuthorization.makeHandle configAuthorization) >>= (
+    ) 
+-}
 
-testDBConnect = defaultConnectInfo {connectUser="test", connectDatabase = "testDB"}
+withDatabase :: ((SAuthorization.Handle IO, Connection) -> IO ()) -> IO ()
+withDatabase f = do 
+  (h,c) <- ImpSAuthorization.makeHandle configAuthorization
+  f (h,c)
+  Beam.close c
+
+configAuthorization = ImpSAuthorization.Config
+  { ImpSAuthorization.confConnectInfo = testDBConnect
+  , ImpSAuthorization.confLimit = 3
+  }
+
+testDBConnect = defaultConnectInfo {connectUser="stepan", connectDatabase = "testDB"}

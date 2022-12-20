@@ -55,6 +55,7 @@ library
     , config-value
     , containers
     , cryptonite
+    , exceptions
     , hspec
     , memory
     , servant
@@ -85,6 +86,7 @@ executable my-web-server-exe
     , config-value
     , containers
     , cryptonite
+    , exceptions
     , hspec
     , memory
     , my-web-server
@@ -118,6 +120,7 @@ test-suite my-web-server-test
     , config-value
     , containers
     , cryptonite
+    , exceptions
     , hspec
     , memory
     , my-web-server
