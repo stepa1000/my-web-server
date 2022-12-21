@@ -41,6 +41,9 @@ dependencies:
 - hspec
 - QuickCheck
 - exceptions
+- uuid
+- random
+- base64
 
 ghc-options:
 - -Wall

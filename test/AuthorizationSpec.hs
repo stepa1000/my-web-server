@@ -24,6 +24,8 @@ import Data.ByteArray
 
 import Data.Time.Calendar.OrdinalDate
 import Data.Time.Clock
+import Data.Maybe
+
 import Crypto.Hash
 import Crypto.Hash.IO
 
@@ -41,7 +43,7 @@ import qualified Data.Imp.Server.Authorization as ImpSAuthorization
 spec :: Spec
 spec = 
   around withDatabase $
-    describe "server authorization" $
+    describe "server authorization" $ do
       it "hCreateUser" $ \ (h,c) -> do
         let name = "name1"
         let login = "login1"
@@ -50,7 +52,63 @@ spec =
         let fa = False
         up <- SAuthorization.hCreateUser h name login password fmn fa
         BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
-          (\a-> ImpSAuthorization._loginUserT a ==. "login1")
+          (\a-> ImpSAuthorization._userLogin a ==. "login1")
+        (UTCTime day _) <- getCurrentTime
+        up `shouldBe` (UserPublic 
+          { nameUser = name
+          , loginUser = login
+          , dateCreationUser = day
+          , adminUser = fa
+          , makeNewsUser = fmn 
+          }
+          )
+      it "hUserList" $ \ (h,c) -> do
+        let name = "name1"
+        let login = "login1"
+        let password = "password1"
+        let fmn = False
+        let fa = False
+        SAuthorization.hCreateUser h name login password fmn fa
+        lup <- SAuthorization.hUserList h 0 3
+        BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
+          (\a-> ImpSAuthorization._userLogin a ==. "login1")
+        (UTCTime day _) <- getCurrentTime
+        lup `shouldBe` [UserPublic 
+          { nameUser = name
+          , loginUser = login
+          , dateCreationUser = day
+          , adminUser = fa
+          , makeNewsUser = fmn
+          }]
+      it "hCheckAccount" $ \ (h,c) -> do
+        let name = "name1"
+        let login = "login1"
+        let password = "password1"
+        let fmn = False
+        let fa = False
+        SAuthorization.hCreateUser h name login password fmn fa
+        up <- fromJust <$> SAuthorization.hCheckAccount h login password
+        BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
+          (\a-> ImpSAuthorization._userLogin a ==. "login1")
+        (UTCTime day _) <- getCurrentTime
+        up `shouldBe` (UserPublic 
+          { nameUser = name
+          , loginUser = login
+          , dateCreationUser = day
+          , adminUser = fa
+          , makeNewsUser = fmn 
+          }
+          )
+      it "hGetAccount" $ \ (h,c) -> do
+        let name = "name1"
+        let login = "login1"
+        let password = "password1"
+        let fmn = False
+        let fa = False
+        SAuthorization.hCreateUser h name login password fmn fa
+        up <- fromJust <$> SAuthorization.hGetAccount h login
+        BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
+          (\a-> ImpSAuthorization._userLogin a ==. "login1")
         (UTCTime day _) <- getCurrentTime
         up `shouldBe` (UserPublic 
           { nameUser = name
@@ -61,9 +119,16 @@ spec =
           }
           )
         
-    
-{-  (runIO $ ImpSAuthorization.makeHandle configAuthorization) >>= (
-    ) 
+
+{-
+createUserTest :: Int -> IO ()
+createUserTest i = do
+  let name = "name" ++ (show i)
+  let login = "login" ++ (show i)
+  let password = "password" ++ (show i)
+  let fmn = False
+  let fa = False
+  SAuthorization.hCreateUser h name login password fmn fa
 -}
 
 withDatabase :: ((SAuthorization.Handle IO, Connection) -> IO ()) -> IO ()

@@ -91,15 +91,15 @@ hAuthorizationFail = do
 
 hGetAccount :: Connection -> Login -> IO (Maybe UserPublic)
 hGetAccount c login = do
-  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ UserT {_loginUserT = login})
+  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ UserT {_userLogin = login})
   return $ fmap userTToUserPublic $ listToMaybe l
 
 hCheckAccount :: Connection -> Login -> Password -> IO (Maybe UserPublic)
 hCheckAccount c login p = do
-  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ UserT {_loginUserT = login})
+  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ UserT {_userLogin = login})
   case l of
     (x:_) -> do
-      let px = _passwordHashUserT x
+      let px = _userPasswordHash x
       if px == (getHash p)
         then return $ Just $ userTToUserPublic x
         else return $ Nothing
@@ -108,7 +108,7 @@ hCheckAccount c login p = do
 hUserList :: Connection -> Config -> OffSet -> Limit -> IO [UserPublic]
 hUserList conn config offset limit' = do -- error "Not implement"
   lut <- listStreamingRunSelect conn $ select $ limit_ (toInteger limit) $ offset_ (toInteger offset) $
-    orderBy_ (asc_ . _loginUserT) $ all_ (_accounts accountDB) 
+    orderBy_ (asc_ . _userLogin) $ all_ (_accounts accountDB) 
   return $ fmap userTToUserPublic lut
   where
     limit = if limit' > (confLimit config) 
@@ -116,11 +116,11 @@ hUserList conn config offset limit' = do -- error "Not implement"
       else limit'
 
 userTToUserPublic ut = UserPublic
-      { nameUser = _nameUserT ut
-      , loginUser = _loginUserT ut
-      , dateCreationUser = _dateCreationUserT ut
-      , adminUser = _adminUserT ut
-      , makeNewsUser = _makeNewsUserT ut
+      { nameUser = _userName ut
+      , loginUser = _userLogin ut
+      , dateCreationUser = _userDateCreation ut
+      , adminUser = _userAdmin ut
+      , makeNewsUser = _userMakeNews ut
       }
 
 listStreamingRunSelect :: FromBackendRow Postgres a => Connection -> SqlSelect Postgres a -> IO [a] 
@@ -130,19 +130,19 @@ listStreamingRunSelect c sqls =
 
 hCreateUser :: Connection -> Config ->  Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> IO UserPublic
 hCreateUser c conf name login password flagMN flagA = do
-  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ UserT {_loginUserT = login})
+  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ UserT {_userLogin = login})
        -- ) .| sinkList -- (sinkVectorN )
   case l of
     [] -> do 
       (UTCTime day _) <- getCurrentTime
       BPC.runInsert c $ insert (_accounts accountDB) $ insertValues
         [ UserT 
-          { _nameUserT = name
-          , _loginUserT = login
-          , _passwordHashUserT = getHash password
-          , _dateCreationUserT = day
-          , _adminUserT = flagA
-          , _makeNewsUserT = flagMN
+          { _userName = name
+          , _userLogin = login
+          , _userPasswordHash = getHash password
+          , _userDateCreation = day
+          , _userAdmin = flagA
+          , _userMakeNews = flagMN
           }
         ]
       return $ UserPublic
@@ -154,23 +154,23 @@ hCreateUser c conf name login password flagMN flagA = do
         }
     (x:_) -> do
       return $ UserPublic
-        { nameUser = _nameUserT x
-        , loginUser = _loginUserT x
-        , dateCreationUser = _dateCreationUserT x
-        , adminUser = _adminUserT x
-        , makeNewsUser = _makeNewsUserT x
+        { nameUser = _userName x
+        , loginUser = _userLogin x
+        , dateCreationUser = _userDateCreation x
+        , adminUser = _userAdmin x
+        , makeNewsUser = _userMakeNews x
         }
 
 getHash :: Text -> ByteString
 getHash = convert . hashlazy  @SHA256 . encode
 
 data UserT f = UserT
-  { _nameUserT :: Columnar f Name
-  , _loginUserT :: Columnar f Login
-  , _passwordHashUserT :: Columnar f ByteString
-  , _dateCreationUserT :: Columnar f Day
-  , _adminUserT :: Columnar f FlagAdmin
-  , _makeNewsUserT :: Columnar f FlagMakeNews
+  { _userName :: Columnar f Name
+  , _userLogin :: Columnar f Login
+  , _userPasswordHash :: Columnar f ByteString
+  , _userDateCreation :: Columnar f Day
+  , _userAdmin :: Columnar f FlagAdmin
+  , _userMakeNews :: Columnar f FlagMakeNews
   } deriving (Generic, Beamable)
 
 type UserTId = UserT Identity
@@ -179,7 +179,7 @@ type UserId = PrimaryKey UserT Identity
 instance Table UserT where
   data PrimaryKey UserT f = UserId (Columnar f Login) 
     deriving (Generic, Beamable)
-  primaryKey = UserId . _loginUserT
+  primaryKey = UserId . _userLogin
 
 data AccountDB f = AccountDB
   { _accounts :: f (TableEntity UserT) } 
