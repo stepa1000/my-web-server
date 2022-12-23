@@ -44,12 +44,13 @@ import Data.Typeable
 import Data.News
 import Data.User
 import Data.Types
+import Data.Utils
 
 import qualified Control.Server.Authorization as ServerAuthorization
 
 data Config = Config
-  { confConnectInfo :: ConnectInfo
-  , confLimit :: Int
+  { -- confConnectInfo :: ConnectInfo
+   confLimit :: Int
   } deriving Show
 
 data ErrorAuthorization 
@@ -61,11 +62,9 @@ data ErrorAuthorization
 withServerAuthorization :: Config -> (ServerAuthorization.Handle IO -> IO a) -> IO a
 withServerAuthorization c f = error "Not implement"
 
-makeHandle :: Config -> IO (ServerAuthorization.Handle IO, Connection)
-makeHandle config = do
-  c <- Beam.connect $ confConnectInfo config
-  return 
-    ( ServerAuthorization.Handle 
+makeHandle :: Config -> Connection -> ServerAuthorization.Handle IO
+makeHandle config c =
+    ServerAuthorization.Handle 
       { ServerAuthorization.hCreateUser = hCreateUser c config
       , ServerAuthorization.hUserList = hUserList c config
       , ServerAuthorization.hCheckAccount = hCheckAccount c
@@ -74,8 +73,6 @@ makeHandle config = do
       , ServerAuthorization.hAdminCheckFail = hAdminCheckFail
       , ServerAuthorization.hCreatorNewsCheckFail = hCreatorNewsCheckFail
       }
-    , c
-    )
 
 hCreatorNewsCheckFail :: IO ()
 hCreatorNewsCheckFail = do
@@ -122,11 +119,6 @@ userTToUserPublic ut = UserPublic
       , adminUser = _userAdmin ut
       , makeNewsUser = _userMakeNews ut
       }
-
-listStreamingRunSelect :: FromBackendRow Postgres a => Connection -> SqlSelect Postgres a -> IO [a] 
-listStreamingRunSelect c sqls = 
-  runConduitRes $ (streamingRunSelect c sqls
-       ) .| sinkList
 
 hCreateUser :: Connection -> Config ->  Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> IO UserPublic
 hCreateUser c conf name login password flagMN flagA = do

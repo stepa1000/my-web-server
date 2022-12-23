@@ -21,8 +21,8 @@ type NewsCategory = Tree Text
 
 data News = News
   { nameNews :: NameNews
-  , loginAothor :: Login
-  , nameAothor :: Name
+  , loginAuthor :: Login
+  , nameAuthor :: Name
   , dateCreationNews :: Day -- UTCTime
   , categoryNews :: Category
   , textNews :: Content

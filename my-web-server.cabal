@@ -33,10 +33,13 @@ library
       Control.Server.News
       Control.Server.Photo
       Data.Imp.Server.Authorization
+      Data.Imp.Server.News
+      Data.Imp.Server.Photo
       Data.Logger.Impl
       Data.News
       Data.Types
       Data.User
+      Data.Utils
       Lib
   other-modules:
       Paths_my_web_server
@@ -47,6 +50,7 @@ library
       QuickCheck
     , aeson
     , base >=4.7 && <5
+    , base64
     , beam-core
     , beam-postgres
     , binary
@@ -58,12 +62,14 @@ library
     , exceptions
     , hspec
     , memory
+    , random
     , servant
     , servant-client
     , servant-server
     , text
     , time
     , transformers-base
+    , uuid
     , vector
   default-language: Haskell2010
 
@@ -78,6 +84,7 @@ executable my-web-server-exe
       QuickCheck
     , aeson
     , base >=4.7 && <5
+    , base64
     , beam-core
     , beam-postgres
     , binary
@@ -90,12 +97,14 @@ executable my-web-server-exe
     , hspec
     , memory
     , my-web-server
+    , random
     , servant
     , servant-client
     , servant-server
     , text
     , time
     , transformers-base
+    , uuid
     , vector
   default-language: Haskell2010
 
@@ -112,6 +121,7 @@ test-suite my-web-server-test
       QuickCheck
     , aeson
     , base >=4.7 && <5
+    , base64
     , beam-core
     , beam-postgres
     , binary
@@ -124,11 +134,13 @@ test-suite my-web-server-test
     , hspec
     , memory
     , my-web-server
+    , random
     , servant
     , servant-client
     , servant-server
     , text
     , time
     , transformers-base
+    , uuid
     , vector
   default-language: Haskell2010

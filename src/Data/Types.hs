@@ -23,6 +23,7 @@ type NewsName = Text
 type Content = Text
 
 type Name = Text
+-- type Authot = Text
 type NameNews = Text
 type Password = Text
 

@@ -18,6 +18,7 @@ import Conduit
 import System.Random
 import Control.Applicative
 import Control.Monad.Catch
+import Control.Monad
 
 import Data.Text
 import Data.ByteString
@@ -36,16 +37,25 @@ import Data.UUID
 import Data.News
 import Data.User
 import Data.Types
+import Data.Utils
 
 import qualified Control.Server.Photo as SPhoto
 
-hGetPhoto :: Photo -> IO (Maybe Base64)
-hGetPhoto p = do
-  l <- listStreamingRunSelect c $ lookup_ (_photos photoDB) (primaryKey $ PhotoT {_photoUuid = p})
-  return $ listToMaybe l
+makeHandle :: Connection -> SPhoto.Handle IO
+makeHandle c = SPhoto.Handle
+  { SPhoto.hPutPhoto = hPutPhoto c
+  , SPhoto.hGetPhoto = hGetPhoto c
+  }
 
-hPutPhoto :: Base64 -> IO Photo
-hPutPhoto b = do
+hGetPhoto :: Connection -> Photo -> IO (Maybe Base64)
+hGetPhoto c p' = do
+  l <- fmap (join . maybeToList) $ traverse 
+    (\p-> listStreamingRunSelect c $ lookup_ (_photos photoDB) (primaryKey $ PhotoT {_photoUuid = p}))
+    (fromText p') 
+  return $ fmap _photoData $ listToMaybe l
+
+hPutPhoto :: Connection -> Base64 -> IO Photo
+hPutPhoto c b = do
   u <- randomIO @UUID
   BPC.runInsert c $ insert (_photos photoDB) $ insertValues
     [ PhotoT u b
@@ -58,10 +68,10 @@ data PhotoT f = PhotoT
   } deriving (Generic, Beamable)
 
 type PhotoTId = PhotoT Identity
-type PhotoId = PrimaryKey UserT Identity
+type PhotoId = PrimaryKey PhotoT Identity
 
 instance Table PhotoT where
-  data PrimaryKey PhotoT f = PhotoId (Columnar f Text)
+  data PrimaryKey PhotoT f = PhotoId (Columnar f UUID)
     deriving (Generic, Beamable)
   primaryKey = PhotoId . _photoUuid
 

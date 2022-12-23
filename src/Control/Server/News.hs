@@ -16,10 +16,10 @@ import Data.Types
 
 data Handle m = Handle
   { handlePhoto :: Photo.Handle m
-  , hGetNewsDay :: DayAt -> DayUntil -> m [News]
+  , hSearchNews :: Search -> m [News]
   , hPutNews :: News -> m () -- Bool
-  , hGetNews :: Name -> NewsName -> m (Maybe News)
-  , hModifNews :: Name -> NewsName -> (News -> News) -> m () -- Bool 
+  , hGetNews :: NewsName -> m (Maybe News)
+  , hModifNews :: NewsName -> (News -> News) -> m () -- Bool 
   , hGetDay :: m Day
   }
 
@@ -36,11 +36,11 @@ handleEditNews :: Monad m
                -> m (Maybe News)
 handleEditNews h author nameN content newNameNews category flagP vP vB64 = do
   vnpic <- P.mapM (Photo.hPutPhoto (handlePhoto h) ) vB64
-  mn <- hGetNews h author nameN
+  mn <- hGetNews h nameN
   case mn of
     (Just n) -> do
       let n2 = (editNews n) {photoNews = vP V.++ vnpic}
-      hModifNews h author nameN (const n2)
+      hModifNews h nameN (const n2)
       return $ Just n2
     _ -> return Nothing
   where
@@ -77,8 +77,8 @@ handleCreateNews h {- vbs -} l name nc = do
   where
     n d vp = News 
       { nameNews = nameNewsCreate nc
-      , loginAothor = l
-      , nameAothor = name
+      , loginAuthor = l
+      , nameAuthor = name
       , dateCreationNews = d
       , categoryNews = categoryNewsCreate nc
       , textNews = textNewsCreate nc
@@ -91,10 +91,10 @@ handleFind :: Monad m
            => Handle m
            -> Search
            -> m [News]
-handleFind h 
-    (Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit) = do -- error "Not implement"
-  lNews <- hGetNewsDay h d1 d2
-  return $ offSetLimitNews mOffSet mLimit $ sortNews mSortBy $ filters lNews
+handleFind h search = 
+--    (Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit) = do -- error "Not implement"
+  hSearchNews h search
+{-  return $ offSetLimitNews mOffSet mLimit $ sortNews mSortBy $ filters lNews
   where
     (d1,d2) = maybe (error "no defult date set") id $ ( do
       d1' <- mDayAt
@@ -134,3 +134,4 @@ filterForString = error "Not implement"
 
 filterFlagPublished :: Maybe FlagPublished -> [News] -> [News]  
 filterFlagPublished = error "Not implement"
+-}
