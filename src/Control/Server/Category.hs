@@ -13,6 +13,7 @@ import Data.Types
 data Handle m = Handle
   { hGetCategory :: m NewsCategory
   -- , hModifyCategory :: (NewsCateory -> NewsCategory) -> m ()
+  --                     name        new root           new name
   , hChangeCategory :: Category -> Maybe Category -> Maybe Category -> m ()
   , hCreateCategory :: Maybe Category -> Category -> m ()
   }

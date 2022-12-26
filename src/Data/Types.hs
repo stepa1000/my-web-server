@@ -8,7 +8,10 @@ import GHC.Generics
 import Servant.API
 
 import Data.Text
+import Data.Tree
 import Data.Time.Calendar.OrdinalDate
+
+type NewsCategory = Tree Category -- Text
 
 type OffSet = Int
 type Limit = Int

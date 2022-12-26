@@ -33,6 +33,7 @@ library
       Control.Server.News
       Control.Server.Photo
       Data.Imp.Server.Authorization
+      Data.Imp.Server.Category
       Data.Imp.Server.News
       Data.Imp.Server.Photo
       Data.Logger.Impl

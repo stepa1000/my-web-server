@@ -14,9 +14,6 @@ import Data.Time.Calendar.OrdinalDate  -- .Clock
 import Data.Aeson
 
 import Data.Types
-
-type NewsCategory = Tree Text
-
 -- type PhotoURL = Text
 
 data News = News
