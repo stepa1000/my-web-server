@@ -15,30 +15,19 @@ import Data.News
 import Data.Types
 
 import Data.Text
+import Data.Text.Encoding
 import Data.ByteString
 import Data.Vector
+
 import Data.Proxy
 
 import Data.Time.Calendar.OrdinalDate  
 
-{- 
-type OffSet = Int
-type Limit = Int
-
-type DayAt = Day
-type DayUntil = Day
-type DaySince = Day
-
-type Aothor = Text
-type Category = Text
-type NewsName = Text
-type Content = Text
-
-type ForString = Text
-type FlagPublished = Bool
--}
-
--- instance ToHttpApiData ByteString where
+basicAuthDataToLogined :: BasicAuthData -> Logined
+basicAuthDataToLogined bad = Logined
+  { loginLogined = decodeUtf8Lenient $ basicAuthUsername bad -- decodeLatin1 $ basicAuthUsername bad -- decodeUtf8Lenient $ basicAuthUsername bad
+  , passwordLogined = decodeUtf8Lenient $ basicAuthPassword bad -- decodeLatin1 $ basicAuthPassword bad -- decodeUtf8Lenient $ basicAuthPassword bad
+  }
 
 type API = "get_news" :> "public"
                       :> QueryParam "created_at" DayAt

@@ -9,6 +9,7 @@ import Servant.API
 
 import Data.Text
 import Data.Tree
+import Data.ByteString
 import Data.Time.Calendar.OrdinalDate
 
 type NewsCategory = Tree Category -- Text
@@ -20,7 +21,7 @@ type DayAt = Day
 type DayUntil = Day
 type DaySince = Day
 
-type Login = Text
+type Login = Text -- ByteString
 type Category = Text
 type NewsName = Text
 type Content = Text
@@ -28,7 +29,7 @@ type Content = Text
 type Name = Text
 -- type Authot = Text
 type NameNews = Text
-type Password = Text
+type Password = Text -- ByteString
 
 type Photo = Text
 type ForString = Text

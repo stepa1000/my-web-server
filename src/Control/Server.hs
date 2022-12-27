@@ -30,7 +30,7 @@ handleServerFind :: Monad m
            -> Search
            -> m [News]
 handleServerFind h Nothing 
-    (Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit) = do
+    (Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit)  = do
   ServerNews.handleFind (handleNews h) $ 
     Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString (Just True) mSortBy mOffSet mLimit
 handleServerFind h (Just logined) 
@@ -48,7 +48,7 @@ handleServerFind h (Just logined)
 handleCategoryCreate :: Monad m
                      => Handle m
                      -> Logined
-                     -> Maybe Category -- root
+                     -> Category -- root
                      -> Category
                      -> m NewsCategory
 handleCategoryCreate h logined mc c = do -- error "Not implement"

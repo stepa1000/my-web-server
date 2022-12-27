@@ -15,7 +15,7 @@ data Handle m = Handle
   -- , hModifyCategory :: (NewsCateory -> NewsCategory) -> m ()
   --                     name        new root           new name
   , hChangeCategory :: Category -> Maybe Category -> Maybe Category -> m ()
-  , hCreateCategory :: Maybe Category -> Category -> m ()
+  , hCreateCategory :: Category -> Category -> m ()
   }
 
 -- handleCategoryCreate :: Monad m => Handle m -> Maybe Category -> Category -> m ()
