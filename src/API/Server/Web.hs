@@ -25,8 +25,8 @@ import Data.Time.Calendar.OrdinalDate
 
 basicAuthDataToLogined :: BasicAuthData -> Logined
 basicAuthDataToLogined bad = Logined
-  { loginLogined = decodeUtf8Lenient $ basicAuthUsername bad -- decodeLatin1 $ basicAuthUsername bad -- decodeUtf8Lenient $ basicAuthUsername bad
-  , passwordLogined = decodeUtf8Lenient $ basicAuthPassword bad -- decodeLatin1 $ basicAuthPassword bad -- decodeUtf8Lenient $ basicAuthPassword bad
+  { loginLogined = decodeUtf8 $ basicAuthUsername bad -- decodeLatin1 $ basicAuthUsername bad -- decodeUtf8Lenient $ basicAuthUsername bad
+  , passwordLogined = decodeUtf8 $ basicAuthPassword bad -- decodeLatin1 $ basicAuthPassword bad -- decodeUtf8Lenient $ basicAuthPassword bad
   }
 
 type API = "get_news" :> "public"
