@@ -7,7 +7,7 @@
 module Data.Imp.Server.Authorization 
   ( makeHandle
   , Config(..)
-  , ErrorAuthorization(..)
+  -- , ErrorAuthorization(..)
   , UserT(..)
   , UserTId
   , UserId
@@ -52,13 +52,13 @@ data Config = Config
   { -- confConnectInfo :: ConnectInfo
    confLimit :: Int
   } deriving Show
-
+{-
 data ErrorAuthorization 
   = ErrorAuthorization
   | ErrorAdminCheck
   | ErrorCreatorNewsCheck
   deriving (Typeable, Show, Eq, Exception)
-
+-}
 withServerAuthorization :: Config -> (ServerAuthorization.Handle IO -> IO a) -> IO a
 withServerAuthorization c f = error "Not implement"
 
@@ -72,19 +72,24 @@ makeHandle config c =
       , ServerAuthorization.hAuthorizationFail = hAuthorizationFail
       , ServerAuthorization.hAdminCheckFail = hAdminCheckFail
       , ServerAuthorization.hCreatorNewsCheckFail = hCreatorNewsCheckFail
+      , ServerAuthorization.hCatchErrorAuthorization = hCatchErrorAuthorization
       }
+
+
+hCatchErrorAuthorization :: IO a -> (ServerAuthorization.ErrorAuthorization -> IO a) -> IO a
+hCatchErrorAuthorization ma c = catch ma c
 
 hCreatorNewsCheckFail :: IO ()
 hCreatorNewsCheckFail = do
-  throwM ErrorCreatorNewsCheck
+  throwM ServerAuthorization.ErrorCreatorNewsCheck
 
 hAdminCheckFail :: IO ()
 hAdminCheckFail = do
-  throwM ErrorAdminCheck
+  throwM ServerAuthorization.ErrorAdminCheck
 
 hAuthorizationFail :: IO ()
 hAuthorizationFail = do
-  throwM ErrorAuthorization
+  throwM ServerAuthorization.ErrorAuthorization
 
 hGetAccount :: Connection -> Login -> IO (Maybe UserPublic)
 hGetAccount c login = do
