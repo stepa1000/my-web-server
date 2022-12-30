@@ -45,6 +45,8 @@ dependencies:
 - random
 - base64
 - warp
+- mtl
+- unix
 
 ghc-options:
 - -Wall

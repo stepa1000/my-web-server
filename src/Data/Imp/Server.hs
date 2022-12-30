@@ -1,5 +1,7 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Data.Imp.Server where
 
+import Servant.API
 import Servant.Server as Servant
 
 import Database.Beam
@@ -10,6 +12,8 @@ import Conduit
 import qualified Control.Server.News as ServerNews
 import qualified Control.Server.Category as ServerCategory
 import qualified Control.Server.Authorization as ServerAuthorization
+
+import Control.Logger ((.<))
 import qualified Control.Logger as Logger
 
 import qualified Control.Server.Photo as ServerPhoto
@@ -20,6 +24,12 @@ import qualified Data.Imp.Server.Authorization as Authorization
 import qualified Data.Imp.Server.Category as Category
 import qualified Data.Imp.Server.News as News
 import qualified Data.Logger.Impl as ImpLogger
+
+import Network.Wai.Handler.Warp as Warp
+import System.Posix.Signals
+
+import Control.Monad
+import Control.Monad.Error.Class
 
 import Data.Maybe
 import Data.Vector as V
@@ -37,54 +47,102 @@ data Config = Config
   , confLogger :: ImpLogger.Config
   }
 
-server :: Config -> IO ()
-server config = do
-  withHandle $ \ sh -> do
-    let app = serverWithContext api (serverContext sh) (serverT sh)
+server :: IO () -> Config -> IO ()
+server shutdown config = do
+  withHandle config $ \ sh -> do
+    let app = serveWithContext api (serverContext sh) (serverT sh)
+    Warp.runSettings (setting shutdown) app
+    return ()
   where
+    setting a = setInstallShutdownHandler shutdownHandler defaultSettings
+      where
+        shutdownHandler closeSocket =
+          void $ installHandler sigTERM (Catch $ a >> closeSocket) Nothing
     serverContext sh = authcheck sh :. EmptyContext
-    serverT sh = getNewsPublic sh :<|> getNewsPrivate sh :<|> categoryCreate :<|> categoryGet :<|> categoryChange :<|> createNewsNew :<|> 
-      createNewsEddit :<|> userCreate :<|> userList :<|> photoGet
+    serverT sh = getNewsPublic sh :<|> getNewsPrivate sh :<|> categoryCreate sh :<|> categoryGet sh  :<|> categoryChange sh :<|> createNewsNew sh :<|> 
+      createNewsEddit sh :<|> userCreate sh :<|> userList sh :<|> photoGet sh
     getNewsPublic sh mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mSortBy mOffSet mLimit
-      = liftIO $ handleServerFind sh Nothing (Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString Nothing mSortBy mOffSet mLimit)
+      = liftIO $ Server.handleServerFind sh Nothing (Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString Nothing mSortBy mOffSet mLimit)
     getNewsPrivate sh bad mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit
-      = liftIO $ handleServerFind sh (Just bad) 
+      = liftIO $ Server.handleServerFind sh (Just bad) 
         (Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit )
-    categoryCreate sh bad (Just rc) (Just nc) = handleCategoryCreate sh bad rc nc
+    categoryCreate sh bad (Just rc) (Just nc) = Server.handleCategoryCreate sh bad rc nc
     categoryCreate sh bad mrc mnc = do
-      logError (Server.handleLogger sh) "categoryCreate: parametrs not Just"
-      hendleCategoryGet sh
-    categoryGet sh = hendleCategoryGet sh
+      Logger.logError (Server.handleLogger sh) "categoryCreate: parametrs not Just"
+      liftIO $ Server.handleCategoryGet sh
+    categoryGet sh = liftIO $ Server.handleCategoryGet sh
     categoryChange sh bad (Just cn) mrc mrnn 
-      = handleCategoryChange sh bad cn mrc mrnn
+      = liftIO $ Server.handleCategoryChange sh bad cn mrc mrnn
     categoryChange sh bad mcn _ _ = do
-      logError (Server.handleLogger sh) "categoryChange: parametrs not Just"
-      hendleCategoryGet sh
-    createNewsNew sh bad nn = handleCategoryChange sh bad nn
+      liftIO $ Logger.logError (Server.handleLogger sh) "categoryChange: parametrs not Just"
+      liftIO $ Server.handleCategoryGet sh
+    createNewsNew sh bad nn = do
+      mn <- liftIO $ Server.handleCreateNewsNew sh bad nn
+      case mn of
+        (Just n) -> return n
+        Nothing -> do
+          liftIO $ Logger.logError (Server.handleLogger sh) $ "userCreate: creator not admin"
+          throwError $ ServerError
+            { errHTTPCode = 404
+            , errReasonPhrase = ""
+            , errBody = fromStrict $ B.empty
+            , errHeaders = []
+            }
     createNewsEddit sh bad nn c nnn ca pu ph nph 
-      = handleServerEditNews sh bad nn c nnn ca pu (V.toList ph) (V.toList nph)
-    userCreate sh bad n l p fm fa = handleUserCreate sh bad n l p fm fa
-    userList sh mo ml = handleUserList sh (maybe 0 id mo) (maybe 0 id ml)
+      = liftIO $ Server.handleServerEditNews sh bad nn c nnn ca pu (V.fromList ph) (V.fromList nph)
+    userCreate :: Server.Handle IO 
+               -> UserPublic 
+               -> Maybe Name 
+               -> Maybe Login 
+               -> Maybe Password 
+               -> Maybe FlagMakeNews 
+               -> Maybe FlagAdmin 
+               -> Servant.Handler UserPublic
+    userCreate sh bad (Just n) (Just l) (Just p) (Just fm) (Just fa) = do
+      mu <- liftIO $ Server.handleUserCreate sh bad n l p fm fa
+      case mu of
+        (Just u) -> return u
+        _ -> do
+          liftIO $ Logger.logError (Server.handleLogger sh) $ "userCreate: creator not admin"
+          throwError $ ServerError
+            { errHTTPCode = 404
+            , errReasonPhrase = ""
+            , errBody = fromStrict $ B.empty
+            , errHeaders = []
+            }
+    userCreate sh bad _ _ _ _ _ = do
+      liftIO $ Logger.logError (Server.handleLogger sh) $ "userCreate: parametors not just"
+      throwError $ ServerError
+        { errHTTPCode = 404
+         , errReasonPhrase = ""
+         , errBody = fromStrict $ B.empty
+         , errHeaders = []
+        }
+    userList sh mo ml = liftIO $ Server.handleUserList sh (maybe 0 id mo) (maybe 0 id ml)
+    photoGet :: Server.Handle IO -> Maybe Photo -> Servant.Handler Base64
     photoGet sh (Just ph) = do
-      mb <- handlePhotoGet sh ph
+      mb <- liftIO $ Server.handlePhotoGet sh ph
       case mb of 
         (Just b) -> return b
         _ -> do
-          logError (Server.handleLogger sh) $ "categoryChange: not find photo for " .< ph
+          liftIO $ Logger.logError (Server.handleLogger sh) $ "categoryChange: not find photo for " .< ph
           throwError $ ServerError
             { errHTTPCode = 400
             , errReasonPhrase = "photo not found"
-            , errBody = B.empty
+            , errBody = fromStrict $ B.empty
             , errHeaders = []
             }
           
-authcheck :: Server.Handle -> BasicAuthCheck UserPublic
-authcheck sh = BasicAuthChecl $ \ bad -> do
-  hCatchErrorAuthorization (fmap Authorized $ ServerAuthorization.handleCheckAccountStrong 
-    (handleAuthorization sh) (basicAuthDataToLogined bad)
+authcheck :: Server.Handle IO -> BasicAuthCheck UserPublic
+authcheck sh = BasicAuthCheck $ \ bad -> do
+  ServerAuthorization.hCatchErrorAuthorization (Server.handleAuthorization sh)
+    (fmap g $ ServerAuthorization.handleCheckAccountStrong 
+      (Server.handleAuthorization sh) (basicAuthDataToLogined bad)
     ) f     
   where
-    f _ = Unauthorized
+    f _ = return $ Unauthorized
+    g (Just a) = Authorized a
+    g _ = Unauthorized
 
 withHandle :: Config -> (Server.Handle IO -> IO a) -> IO a
 withHandle conf g = do

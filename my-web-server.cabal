@@ -64,6 +64,7 @@ library
     , exceptions
     , hspec
     , memory
+    , mtl
     , random
     , servant
     , servant-client
@@ -71,6 +72,7 @@ library
     , text
     , time
     , transformers-base
+    , unix
     , uuid
     , vector
     , warp
@@ -99,6 +101,7 @@ executable my-web-server-exe
     , exceptions
     , hspec
     , memory
+    , mtl
     , my-web-server
     , random
     , servant
@@ -107,6 +110,7 @@ executable my-web-server-exe
     , text
     , time
     , transformers-base
+    , unix
     , uuid
     , vector
     , warp
@@ -137,6 +141,7 @@ test-suite my-web-server-test
     , exceptions
     , hspec
     , memory
+    , mtl
     , my-web-server
     , random
     , servant
@@ -145,6 +150,7 @@ test-suite my-web-server-test
     , text
     , time
     , transformers-base
+    , unix
     , uuid
     , vector
     , warp
