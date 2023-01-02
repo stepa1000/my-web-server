@@ -24,7 +24,7 @@ data Handle m = Handle
   , hAuthorizationFail :: m ()
   , hAdminCheckFail :: m ()
   , hCreatorNewsCheckFail :: m ()
-  , hCatchErrorAuthorization :: forall a. m a -> (ErrorAuthorization -> m a) -> m a
+  --, hCatchErrorAuthorization :: forall a. m a -> (ErrorAuthorization -> m a) -> m a
   }
 
 data ErrorAuthorization 

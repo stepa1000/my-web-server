@@ -18,6 +18,9 @@ module Data.Imp.Server.Authorization
 
 import Prelude as P
 
+import Servant.API
+import Servant.Server as Servant
+
 import GHC.Generics
 
 import Database.Beam
@@ -27,9 +30,10 @@ import Conduit
 
 import Control.Applicative
 import Control.Monad.Catch
+import Control.Monad.Error
 
 import Data.Text
-import Data.ByteString
+import Data.ByteString as B
 import Data.Binary
 import Data.ByteArray
 
@@ -58,22 +62,73 @@ data ErrorAuthorization
   | ErrorAdminCheck
   | ErrorCreatorNewsCheck
   deriving (Typeable, Show, Eq, Exception)
+
+Name -> Login -> Password -> FlagMakeNews -> FlagAdmin
 -}
 withServerAuthorization :: Config -> (ServerAuthorization.Handle IO -> IO a) -> IO a
 withServerAuthorization c f = error "Not implement"
 
+makeHandleServant :: Config -> Connection -> ServerAuthorization.Handle (Servant.Handler)
+makeHandleServant config c = 
+  ServerAuthorization.Handle
+    { ServerAuthorization.hCreateUser = \n l p fmn fa -> liftIO $ hCreateUser c config n l p fmn fa
+    , ServerAuthorization.hUserList = \o l-> liftIO $ hUserList c config o l
+    , ServerAuthorization.hCheckAccount = \l p-> liftIO $ hCheckAccount c l p
+    , ServerAuthorization.hGetAccount = \l-> liftIO $ hGetAccount c l
+    , ServerAuthorization.hAuthorizationFail = hAuthorizationFailServant
+    , ServerAuthorization.hAdminCheckFail = hAdminCheckFailServant
+    , ServerAuthorization.hCreatorNewsCheckFail = hCreatorNewsCheckFailServant
+    --, ServerAuthorization.hCatchErrorAuthorization = hCatchErrorAuthorizationServant
+    }
+
+hAuthorizationFailServant :: Servant.Handler ()
+hAuthorizationFailServant = do
+  throwError $ ServerError
+    { errHTTPCode = 400
+    , errReasonPhrase = "fail authorization"
+    , errBody = fromStrict $ B.empty
+    , errHeaders = []
+    }
+{-
+hCatchErrorAuthorizationServant :: Servant.Handler ()
+hCatchErrorAuthorizationServant = do
+  throwError $ ServerError
+    { errHTTPCode = 400
+    , errReasonPhrase = "creator not maker news"
+    , errBody = fromStrict $ B.empty
+    , errHeaders = []
+    }
+-}
+hCreatorNewsCheckFailServant :: Servant.Handler ()
+hCreatorNewsCheckFailServant = do
+  throwError $ ServerError
+    { errHTTPCode = 400
+    , errReasonPhrase = "creator not maker news"
+    , errBody = fromStrict $ B.empty
+    , errHeaders = []
+    }
+
+hAdminCheckFailServant :: Servant.Handler ()
+hAdminCheckFailServant = do
+  throwError $ ServerError
+    { errHTTPCode = 404
+    , errReasonPhrase = ""
+    , errBody = fromStrict $ B.empty
+    , errHeaders = []
+    }
+
 makeHandle :: Config -> Connection -> ServerAuthorization.Handle IO
 makeHandle config c =
-    ServerAuthorization.Handle 
-      { ServerAuthorization.hCreateUser = hCreateUser c config
-      , ServerAuthorization.hUserList = hUserList c config
-      , ServerAuthorization.hCheckAccount = hCheckAccount c
-      , ServerAuthorization.hGetAccount = hGetAccount c
-      , ServerAuthorization.hAuthorizationFail = hAuthorizationFail
-      , ServerAuthorization.hAdminCheckFail = hAdminCheckFail
-      , ServerAuthorization.hCreatorNewsCheckFail = hCreatorNewsCheckFail
-      , ServerAuthorization.hCatchErrorAuthorization = hCatchErrorAuthorization
-      }
+  ServerAuthorization.Handle 
+    { ServerAuthorization.hCreateUser = hCreateUser c config
+    , ServerAuthorization.hUserList = hUserList c config
+    , ServerAuthorization.hCheckAccount = hCheckAccount c
+    , ServerAuthorization.hGetAccount = hGetAccount c
+    , ServerAuthorization.hAuthorizationFail = hAuthorizationFail
+    , ServerAuthorization.hAdminCheckFail = hAdminCheckFail
+    , ServerAuthorization.hCreatorNewsCheckFail = hCreatorNewsCheckFail
+    -- , ServerAuthorization.hCatchErrorAuthorization = hCatchErrorAuthorization
+    }
 
 
 hCatchErrorAuthorization :: IO a -> (ServerAuthorization.ErrorAuthorization -> IO a) -> IO a

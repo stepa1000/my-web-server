@@ -66,9 +66,9 @@ server shutdown config = do
     getNewsPrivate sh bad mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit
       = liftIO $ Server.handleServerFind sh (Just bad) 
         (Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit )
-    categoryCreate sh bad (Just rc) (Just nc) = Server.handleCategoryCreate sh bad rc nc
+    categoryCreate sh bad (Just rc) (Just nc) = liftIO $ Server.handleCategoryCreate sh bad rc nc
     categoryCreate sh bad mrc mnc = do
-      Logger.logError (Server.handleLogger sh) "categoryCreate: parametrs not Just"
+      liftIO $ Logger.logError (Server.handleLogger sh) "categoryCreate: parametrs not Just"
       liftIO $ Server.handleCategoryGet sh
     categoryGet sh = liftIO $ Server.handleCategoryGet sh
     categoryChange sh bad (Just cn) mrc mrnn 
@@ -76,6 +76,7 @@ server shutdown config = do
     categoryChange sh bad mcn _ _ = do
       liftIO $ Logger.logError (Server.handleLogger sh) "categoryChange: parametrs not Just"
       liftIO $ Server.handleCategoryGet sh
+    createNewsNew :: Server.Handle IO -> UserPublic -> NewsCreate -> Servant.Handler News
     createNewsNew sh bad nn = do
       mn <- liftIO $ Server.handleCreateNewsNew sh bad nn
       case mn of
@@ -88,8 +89,36 @@ server shutdown config = do
             , errBody = fromStrict $ B.empty
             , errHeaders = []
             }
-    createNewsEddit sh bad nn c nnn ca pu ph nph 
-      = liftIO $ Server.handleServerEditNews sh bad nn c nnn ca pu (V.fromList ph) (V.fromList nph)
+    createNewsEddit :: Server.Handle IO 
+                    -> UserPublic
+                    -> Maybe NameNews -- old   
+                    -> Maybe Content
+                    -> Maybe NameNews -- new
+                    -> Maybe Category
+                    -> Maybe FlagPublished
+                    -> [Photo]
+                    -> [Base64]  
+                    -> Servant.Handler News
+    createNewsEddit sh bad (Just nn) c nnn ca pu ph nph = do 
+      mu <- liftIO $ Server.handleServerEditNews sh bad nn c nnn ca pu (V.fromList ph) (V.fromList nph)
+      case mu of
+        (Just u) -> return u
+        _ -> do
+          liftIO $ Logger.logError (Server.handleLogger sh) $ "createNewsEddit: creator not maker news"
+          throwError $ ServerError
+            { errHTTPCode = 403
+            , errReasonPhrase = "creator not maker news"
+            , errBody = fromStrict $ B.empty
+            , errHeaders = []
+            }
+    createNewsEddit sh _ _ _ _ _ _ _ _ = do
+      liftIO $ Logger.logError (Server.handleLogger sh) $ "createNewsEddit: parametors not just"
+      throwError $ ServerError
+        { errHTTPCode = 400
+        , errReasonPhrase = "parametors not just"
+        , errBody = fromStrict $ B.empty
+        , errHeaders = []
+        }
     userCreate :: Server.Handle IO 
                -> UserPublic 
                -> Maybe Name 

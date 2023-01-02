@@ -34,4 +34,4 @@ data NewsCreate = NewsCreate
   , photoNewsCreate :: Vector Photo
   , newPhotoNewsCreate :: Vector Base64 -- B.ByteString
   , publicNewsCreate :: FlagPublished
-  } deriving (Generic, ToJSON)
+  } deriving (Generic, ToJSON, FromJSON)

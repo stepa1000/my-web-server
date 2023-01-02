@@ -71,3 +71,10 @@ instance ToHttpApiData SortBy where
   toUrlPiece SBAuthor = "author"
   toUrlPiece SBCategory = "category"
   toUrlPiece SBCountPhoto = "photo"
+
+instance FromHttpApiData SortBy where
+  parseUrlPiece "date" = return SBDate
+  parseUrlPiece "author" = return SBAuthor
+  parseUrlPiece "category" = return SBCategory
+  parseUrlPiece "photo" = return SBCountPhoto
+  parseUrlPiece _ = Left "dont parse SortBy"
