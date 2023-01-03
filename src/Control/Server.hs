@@ -1,4 +1,15 @@
-module Control.Server where
+module Control.Server 
+  ( Handle(..)
+  , handleServerFind
+  , handleCategoryCreate
+  , handleCategoryGet
+  , handleCategoryChange
+  , handleCreateNewsNew
+  , handleServerEditNews
+  , handleUserCreate
+  , handleUserList
+  , handlePhotoGet
+  ) where
 
 -- import Servant.Server as Servant
 
@@ -24,24 +35,23 @@ data Handle m = Handle
   -- , hHoistToServerHandle :: forall x. m x -> Servant.Handler x
   }
 
-handleServerFind :: Monad m 
-           => Handle m
+handleServerFind :: Handle m
            -> Maybe UserPublic
            -> Search
            -> m [News]
 handleServerFind h Nothing 
-    (Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit)  = do
+    (Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' _ mSortBy' mOffSet' mLimit')  = do
   ServerNews.handleFind (handleNews h) $ 
-    Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString (Just True) mSortBy mOffSet mLimit
+    Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' (Just True) mSortBy' mOffSet' mLimit'
 handleServerFind h muserPublic
-    (Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit) = do
+    (Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit') = do
   if (isJust muserPublic)
   then do
     ServerNews.handleFind (handleNews h) $
-      Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit
+      Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit'
   else do
     ServerNews.handleFind (handleNews h) $
-      Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString (Just True) mSortBy mOffSet mLimit
+      Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' (Just True) mSortBy' mOffSet' mLimit'
 
 handleCategoryCreate :: Monad m
                      => Handle m
@@ -58,7 +68,7 @@ handleCategoryCreate h userpublic mc c = do -- error "Not implement"
       ServerAuthorization.hAdminCheckFail (handleAuthorization h) 
       ServerCategory.hGetCategory (handleCategory h)
 
-handleCategoryGet :: Monad m => Handle m -> m NewsCategory
+handleCategoryGet :: Handle m -> m NewsCategory
 handleCategoryGet h = ServerCategory.hGetCategory (handleCategory h)
 
 handleCategoryChange :: Monad m 
@@ -97,10 +107,10 @@ handleServerEditNews :: Monad m
                      -> Vector Photo
                      -> Vector Base64 -- ByteString
                      -> m (Maybe News)
-handleServerEditNews h userpublic nameN mContent mNameNews mCategory mFlagP vPh vB64 = do
+handleServerEditNews h userpublic nameN mContent' mNameNews mCategory' mFlagP vPh vB64 = do
   case userpublic of
-    (UserPublic name _ _ _ True) -> do
-      ServerNews.handleEditNews (handleNews h) name nameN mContent mNameNews mCategory mFlagP vPh vB64
+    (UserPublic _ _ _ _ True) -> do
+      ServerNews.handleEditNews (handleNews h) {-name-} nameN mContent' mNameNews mCategory' mFlagP vPh vB64
     _ -> do
       ServerAuthorization.hCreatorNewsCheckFail (handleAuthorization h) 
       return Nothing
@@ -116,12 +126,12 @@ handleUserCreate h userpublic name login password fMakeNews fAdmin = do
       ServerAuthorization.hAdminCheckFail (handleAuthorization h)
       return Nothing
 
-handleUserList :: Monad m => Handle m -> OffSet -> Limit -> m [UserPublic]
-handleUserList h offset limit = do
+handleUserList :: Handle m -> OffSet -> Limit -> m [UserPublic]
+handleUserList h offset limit =
   ServerAuthorization.hUserList (handleAuthorization h) offset limit
 
-handlePhotoGet :: Monad m => Handle m -> Photo -> m (Maybe Base64)
-handlePhotoGet h p = do
+handlePhotoGet :: Handle m -> Photo -> m (Maybe Base64)
+handlePhotoGet h p =
   ServerPhoto.hGetPhoto (ServerNews.handlePhoto $ handleNews h) p
 
 {-

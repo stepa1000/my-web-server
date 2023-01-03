@@ -3,9 +3,23 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module API.Server.Web where
+module API.Server.Web  
+  ( basicAuthDataToLogined
+  , API
+  , api
+  , getNewsPublic
+  , getNewsPrivate
+  , categoryCreate
+  , categoryGetTree
+  , categoryChange
+  , createNewsNew
+  , createNewsEdit
+  , userCreate
+  , userList
+  , photoGet
+  ) where
 
-import GHC.Generics
+-- import GHC.Generics
 
 import Servant.API
 import Servant.Client
@@ -14,14 +28,14 @@ import Data.User
 import Data.News
 import Data.Types
 
-import Data.Text
+-- import Data.Text
 import Data.Text.Encoding
-import Data.ByteString
-import Data.Vector
+-- import Data.ByteString
+-- import Data.Vector
 
 import Data.Proxy
 
-import Data.Time.Calendar.OrdinalDate  
+-- import Data.Time.Calendar.OrdinalDate  
 
 basicAuthDataToLogined :: BasicAuthData -> Logined
 basicAuthDataToLogined bad = Logined

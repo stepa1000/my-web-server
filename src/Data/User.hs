@@ -2,7 +2,10 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeFamilies#-}
 
-module Data.User where
+module Data.User
+  ( UserPublic(..)
+  , User (..)
+  ) where
 
 import GHC.Generics
 
@@ -14,7 +17,7 @@ import qualified Data.ByteString as B
 import Data.Time.Calendar.OrdinalDate -- Clock
 import Data.Aeson
 
-import Data.Functor.Identity
+-- import Data.Functor.Identity
 
 import Data.Types
 

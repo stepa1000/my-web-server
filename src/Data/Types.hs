@@ -1,7 +1,30 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric,
+OverloadedStrings #-}
 
-module Data.Types where
+module Data.Types 
+  ( NewsCategory
+  , OffSet
+  , Limit
+  , DayAt
+  , DayUntil
+  , DaySince
+  , Login
+  , Category
+  , NewsName
+  , Content
+  , Name
+  , NameNews
+  , Password
+  , Photo
+  , ForString
+  , Base64
+  , FlagPublished
+  , FlagMakeNews
+  , FlagAdmin
+  , Logined(..)
+  , Search(..)
+  , SortBy(..)
+  ) where
 
 import GHC.Generics
 
@@ -9,7 +32,7 @@ import Servant.API
 
 import Data.Text
 import Data.Tree
-import Data.ByteString
+-- import Data.ByteString
 import Data.Time.Calendar.OrdinalDate
 
 type NewsCategory = Tree Category -- Text

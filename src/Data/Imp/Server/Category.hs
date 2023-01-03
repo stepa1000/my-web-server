@@ -104,7 +104,7 @@ catMaybesTree = foldTree f
 cutTree' :: Eq a => Tree (Maybe a) -> Maybe a -> ([Tree (Maybe a)],Tree (Maybe a))
 cutTree' t a = (\(x,y)->(join x,y)) $ mapTree t a f 
   where
-    f (Just an) sf = (sf,Nothing,[])
+    f (Just _) sf = (sf,Nothing,[])
     f Nothing _ = ([],Nothing,[])
 
 mapTree :: Eq a => Tree a -> a -> (a -> [Tree a] -> (b,a,[Tree a])) -> ([b],Tree a)

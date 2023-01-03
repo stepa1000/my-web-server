@@ -47,9 +47,13 @@ dependencies:
 - warp
 - mtl
 - unix
+- yaml
 
 ghc-options:
+# -XOverloadedStrings
+# -XDeriveGeneric
 - -Wall
+- -Werror
 - -Wcompat
 - -Widentities
 - -Wincomplete-record-updates

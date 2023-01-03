@@ -1,13 +1,16 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 
-module Data.News where
+module Data.News 
+  ( News(..)
+  , NewsCreate(..)
+  ) where
 
 import GHC.Generics
 
-import Data.Text
+-- import Data.Text
 import Data.Vector as V
-import Data.Tree as T
+-- import Data.Tree as T
 -- import qualified Data.ByteString as B
 
 import Data.Time.Calendar.OrdinalDate  -- .Clock

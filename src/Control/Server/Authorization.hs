@@ -1,18 +1,24 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DeriveAnyClass #-}
 
-module Control.Server.Authorization where
+module Control.Server.Authorization
+  ( Handle(..)
+  , ErrorAuthorization
+  , handleWithAccount
+  , handleCheckAccountStrong
+  , handleCheckAccount
+  ) where
 
 import Prelude as P
 
-import Control.Applicative
+-- import Control.Applicative
 import Control.Monad.Catch
 
-import Data.Text
-import Data.Time.Calendar.OrdinalDate
+-- import Data.Text
+-- import Data.Time.Calendar.OrdinalDate
 import Data.Typeable
 
-import Data.News
+-- import Data.News
 import Data.User
 import Data.Types
 
@@ -24,7 +30,7 @@ data Handle m = Handle
   , hAuthorizationFail :: m ()
   , hAdminCheckFail :: m ()
   , hCreatorNewsCheckFail :: m ()
-  --, hCatchErrorAuthorization :: forall a. m a -> (ErrorAuthorization -> m a) -> m a
+  , hCatchErrorAuthorization :: forall a. m a -> (ErrorAuthorization -> m a) -> m a
   }
 
 data ErrorAuthorization 

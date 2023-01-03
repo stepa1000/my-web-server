@@ -76,40 +76,147 @@ sortNews (Just SBCategory) = sortBy (\a b-> compare (categoryNews a) (categoryNe
 sortNews (Just SBCountPhoto) = sortBy (\a b-> compare (V.length $ photoNews a) (V.length $ photoNews b))
 
 -- filterSearch :: Search -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
-filterSearch (Search mDayAt mDayUntil mDaySince mAuthor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit) n =
-  (filterDaySince mDaySince n) &&.
-  (filterDayAt mDayAt n) &&.
-  (filterDayUntil mDayUntil n) &&.
-  (filterAuthor mAuthor n) &&.
-  (filterCategory mCategory n) &&.
-  (filterNewsName mNewsNam n) &&.
-  (filterFlagPublished mFlagPublished n)
+filterSearch (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit') n =
+  (filterDaySince mDaySince' n) &&.
+  (filterDayAt mDayAt' n) &&.
+  (filterDayUntil mDayUntil' n) &&.
+  (filterAuthor mAuthor' n) &&.
+  (filterCategory mCategory' n) &&.
+  (filterNewsName mNewsNam' n) &&.
+  (filterFlagPublished mFlagPublished' n) &&.
+  (filterContent mContent' n) &&.
+  (f mForString') -- (filterForStringName mForString n) (filterForStringContent mForString n ))
+  where
+    f (Just fs) = filterForStringName fs n ||. filterForStringContent fs n
+    f Nothing = val_ True
+
+filterForStringContent :: (Columnar f Content
+                                 ~ QGenExpr QValueContext w1 s w2,
+                                 HasSqlEqualityCheck w1 Integer,
+                                 Database.Beam.Backend.SQL.BeamSqlBackendIsString w1 w2,
+                                 Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
+                                   (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
+                                      (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
+                                         (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
+                                            (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
+                                               (Database.Beam.Backend.SQL.BeamSqlBackendSyntax
+                                                  w1)))))
+                                   w2,
+                                 Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
+                                   (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
+                                      (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
+                                         (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
+                                            (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
+                                               (Database.Beam.Backend.SQL.BeamSqlBackendSyntax
+                                                  w1)))))
+                                   Integer) =>
+                                w2 -> NewsT f -> QGenExpr QValueContext w1 s Bool
+filterForStringContent fs n = (position_ @_ @_ @Integer (val_ fs) (_newsContent n)) /=. (val_ 0)
+
+filterForStringName :: (Columnar f NameNews
+                              ~ QGenExpr QValueContext w1 s w2,
+                              HasSqlEqualityCheck w1 Integer,
+                              Database.Beam.Backend.SQL.BeamSqlBackendIsString w1 w2,
+                              Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
+                                (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
+                                   (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
+                                      (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
+                                         (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
+                                            (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
+                                w2,
+                              Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
+                                (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
+                                   (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
+                                      (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
+                                         (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
+                                            (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
+                                Integer) =>
+                             w2 -> NewsT f -> QGenExpr QValueContext w1 s Bool
+filterForStringName s n = (position_ @_ @_ @Integer (val_ s) (_newsName n)) /=. (val_ 0)
+--filterForStringName Nothing _ = val_ True
+
+filterContent :: (Columnar f Content
+                        ~ QGenExpr QValueContext w1 s w2,
+                        HasSqlEqualityCheck w1 Integer,
+                        Database.Beam.Backend.SQL.BeamSqlBackendIsString w1 w2,
+                        Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
+                          (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
+                             (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
+                                (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
+                                   (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
+                                      (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
+                          w2,
+                        Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
+                          (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
+                             (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
+                                (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
+                                   (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
+                                      (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
+                          Integer) =>
+                       Maybe w2 -> NewsT f -> QGenExpr QValueContext w1 s Bool
+filterContent (Just c) n = (position_ @_ @_ @Integer (val_ c) (_newsContent n)) /=. (val_ 0)
+filterContent Nothing _ = val_ True
 
 -- filterFlagPublished :: Maybe FlagPublished -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
+filterFlagPublished :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
+                       SqlEq expr (Columnar f FlagPublished), SqlValable (expr Bool),
+                       SqlValable (Columnar f FlagPublished)) 
+                       => Maybe (HaskellLiteralForQExpr (Columnar f FlagPublished))
+                       -> NewsT f -> expr Bool
 filterFlagPublished (Just fp) n = (_newsPublic n) ==. (val_ fp)
 filterFlagPublished Nothing _ = val_ True
     
 -- filterNewsName :: Maybe NewsName -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
+filterNewsName :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
+                  SqlEq expr (Columnar f NameNews), SqlValable (expr Bool),
+                  SqlValable (Columnar f NameNews)) 
+                  => Maybe (HaskellLiteralForQExpr (Columnar f NameNews))
+                  -> NewsT f -> expr Bool
 filterNewsName (Just nn) n = (_newsName n) ==. (val_ nn)
 filterNewsName Nothing _ = val_ True
 
 -- filterCategory :: Maybe Category -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
+filterCategory :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
+                  SqlEq expr (Columnar f Category), SqlValable (expr Bool),
+                  SqlValable (Columnar f Category)) 
+                  => Maybe (HaskellLiteralForQExpr (Columnar f Category))
+                  -> NewsT f -> expr Bool
 filterCategory (Just c) n = (_newsCategory n) ==. (val_ c)
 filterCategory Nothing _ = val_ True
 
 -- filterAuthor :: Maybe Name -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
+filterAuthor :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
+                SqlEq expr (Columnar f Name), SqlValable (expr Bool),
+                SqlValable (Columnar f Name)) 
+                => Maybe (HaskellLiteralForQExpr (Columnar f Name))
+                -> NewsT f -> expr Bool
 filterAuthor (Just a) n = (_newsNameAuthor n) ==. (val_ a)
 filterAuthor Nothing _ = val_ True
 
 -- filterDaySince :: Maybe DaySince -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
+filterDaySince :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
+                  SqlEq expr (Columnar f Day), SqlValable (expr Bool),
+                  SqlValable (Columnar f Day)) 
+                  => Maybe (HaskellLiteralForQExpr (Columnar f Day))
+                  -> NewsT f -> expr Bool
 filterDaySince (Just ds) n = (_newsDateCreation n) ==. (val_ ds) 
 filterDaySince Nothing _ = val_ True
 
 -- filterDayAt :: Maybe DayAt -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
+filterDayAt :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
+               SqlOrd expr (Columnar f Day), SqlValable (expr Bool),
+               SqlValable (Columnar f Day)) 
+               => Maybe (HaskellLiteralForQExpr (Columnar f Day))
+               -> NewsT f -> expr Bool
 filterDayAt (Just dat) n = (_newsDateCreation n) >=. (val_ dat) 
 filterDayAt Nothing _ = val_ True
 
 -- filterDayUntil :: Maybe DayUntil -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
+filterDayUntil :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
+                  SqlOrd expr (Columnar f Day), SqlValable (expr Bool),
+                  SqlValable (Columnar f Day)) 
+                  => Maybe (HaskellLiteralForQExpr (Columnar f Day))
+                  -> NewsT f -> expr Bool
 filterDayUntil (Just dat) n = (_newsDateCreation n) <=. (val_ dat) 
 filterDayUntil Nothing _ = val_ True
 
@@ -120,11 +227,11 @@ hGetDay = do
 
 hModifNews :: Connection -> NameNews -> (News -> News) -> IO ()
 hModifNews c nn f = do
-  l <- listStreamingRunSelect c $ lookup_ (_news newsDB) (primaryKey $ NewsT {_newsName = nn})
+  l <- listStreamingRunSelect c $ lookup_ (_news newsDB) (primaryKey $ nameNewsT nn)
   case l of
     (x:_) -> do
       let mn = fmap f $ newsTToNews x
-      traverse (\n-> do
+      _ <- traverse (\n-> do
           BPC.runInsert c $ Beam.insert (_news newsDB) $ insertValues
             [ newsToNewsT n
             ]
@@ -134,7 +241,7 @@ hModifNews c nn f = do
 
 hGetNews :: Connection -> NewsName -> IO (Maybe News)
 hGetNews c nn = do
-  l <- listStreamingRunSelect c $ lookup_ (_news newsDB) (primaryKey $ NewsT {_newsName = nn})
+  l <- listStreamingRunSelect c $ lookup_ (_news newsDB) (primaryKey $ nameNewsT nn)
   case l of
     (x:_) -> return $ newsTToNews x
     [] -> return Nothing
@@ -142,7 +249,7 @@ hGetNews c nn = do
 
 hPutNews :: Connection -> News -> IO ()
 hPutNews c n = do
-  BPC.runInsert c $ Beam.insert (_news newsDB) $ insertValues
+  _ <- BPC.runInsert c $ Beam.insert (_news newsDB) $ insertValues
     [ newsToNewsT n
     ]
   return ()
@@ -172,6 +279,18 @@ newsToNewsT n = NewsT
   , _newsPhoto = toStrict $ A.encode $ photoNews n
   , _newsPublic = publicNews n
   }
+
+nameNewsT :: NameNews -> NewsTId
+nameNewsT nn = NewsT 
+    { _newsName = nn
+    , _newsLoginAuthor = undefined
+    , _newsNameAuthor = undefined
+    , _newsDateCreation = undefined
+    , _newsCategory = undefined
+    , _newsContent = undefined
+    , _newsPhoto = undefined -- PhotoVector-- [Photo] -- (Vector Photo)
+    , _newsPublic = undefined
+    }
 
 data NewsT f = NewsT
   { _newsName :: Columnar f NameNews

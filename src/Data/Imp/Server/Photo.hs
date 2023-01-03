@@ -4,7 +4,9 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Data.Imp.Server.Photo where
+module Data.Imp.Server.Photo 
+  ( makeHandle
+  ) where
 
 import Prelude as P
 
@@ -13,29 +15,14 @@ import GHC.Generics
 import Database.Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
-import Conduit
+-- import Conduit
 
 import System.Random
-import Control.Applicative
-import Control.Monad.Catch
 import Control.Monad
 
-import Data.Text
-import Data.ByteString
-import Data.Binary
-import Data.ByteArray
-
-import Data.Time.Calendar.OrdinalDate
-import Data.Time.Clock
-import Crypto.Hash
-import Crypto.Hash.IO
-
 import Data.Maybe
-import Data.Typeable
 import Data.UUID
 
-import Data.News
-import Data.User
 import Data.Types
 import Data.Utils
 
@@ -50,14 +37,18 @@ makeHandle c = SPhoto.Handle
 hGetPhoto :: Connection -> Photo -> IO (Maybe Base64)
 hGetPhoto c p' = do
   l <- fmap (join . maybeToList) $ traverse 
-    (\p-> listStreamingRunSelect c $ lookup_ (_photos photoDB) (primaryKey $ PhotoT {_photoUuid = p}))
+    (\p-> listStreamingRunSelect c $ lookup_ (_photos photoDB) (primaryKey $ 
+      PhotoT 
+        { _photoUuid = p
+        , _photoData = undefined
+        }))
     (fromText p') 
   return $ fmap _photoData $ listToMaybe l
 
 hPutPhoto :: Connection -> Base64 -> IO Photo
 hPutPhoto c b = do
   u <- randomIO @UUID
-  BPC.runInsert c $ insert (_photos photoDB) $ insertValues
+  _ <- BPC.runInsert c $ insert (_photos photoDB) $ insertValues
     [ PhotoT u b
     ]
   return $ toText u
@@ -67,8 +58,8 @@ data PhotoT f = PhotoT
   , _photoData :: Columnar f Base64
   } deriving (Generic, Beamable)
 
-type PhotoTId = PhotoT Identity
-type PhotoId = PrimaryKey PhotoT Identity
+-- type PhotoTId = PhotoT Identity
+-- type PhotoId = PrimaryKey PhotoT Identity
 
 instance Table PhotoT where
   data PrimaryKey PhotoT f = PhotoId (Columnar f UUID)

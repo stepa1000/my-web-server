@@ -1,6 +1,8 @@
 module Main (main) where
 
-import Lib
+-- import Lib
+
+import Data.Imp.Server
 
 main :: IO ()
-main = someFunc
+main = return () -- someFunc

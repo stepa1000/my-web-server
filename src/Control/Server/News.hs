@@ -1,11 +1,16 @@
-module Control.Server.News where
+module Control.Server.News 
+  ( Handle(..)
+  , handleEditNews
+  , handleCreateNews
+  , handleFind
+  ) where
 
 import Prelude as P
 
-import Control.Applicative
+-- import Control.Applicative
 
-import Data.Text
-import Data.ByteString
+-- import Data.Text
+-- import Data.ByteString
 import Data.Vector as V
 import Data.Time.Calendar.OrdinalDate
 
@@ -25,7 +30,7 @@ data Handle m = Handle
 
 handleEditNews :: Monad m 
                => Handle m
-               -> Name 
+               -- -> Name 
                -> NameNews -- old   
                -> Maybe Content
                -> Maybe NameNews -- new
@@ -34,7 +39,7 @@ handleEditNews :: Monad m
                -> Vector Photo
                -> Vector Base64 -- ByteString
                -> m (Maybe News)
-handleEditNews h author nameN content newNameNews category flagP vP vB64 = do
+handleEditNews h {-_ author-} nameN content newNameNews category flagP vP vB64 = do
   vnpic <- P.mapM (Photo.hPutPhoto (handlePhoto h) ) vB64
   mn <- hGetNews h nameN
   case mn of
@@ -56,7 +61,7 @@ editNewsContent Nothing n = n
 
 editNewsNameNews :: Maybe NameNews -> News -> News
 editNewsNameNews (Just nn) n = n {nameNews = nn}
-editNewsNameNEws Nothing n = n
+editNewsNameNews _ n = n
 
 editNewsCategory :: Maybe Category -> News -> News
 editNewsCategory (Just c) n = n {categoryNews = c}
@@ -87,8 +92,7 @@ handleCreateNews h {- vbs -} l name nc = do
       }
 
 -- handleGetNewsDay :: Handle
-handleFind :: Monad m
-           => Handle m
+handleFind :: Handle m
            -> Search
            -> m [News]
 handleFind h search = 
