@@ -3,7 +3,7 @@
 
 module Control.Server.Authorization
   ( Handle(..)
-  , ErrorAuthorization
+  , ErrorAuthorization(..)
   , handleWithAccount
   , handleCheckAccountStrong
   , handleCheckAccount

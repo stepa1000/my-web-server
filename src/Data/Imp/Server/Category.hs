@@ -4,47 +4,49 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Data.Imp.Server.Category where
+module Data.Imp.Server.Category 
+  ( withHandle
+  ) where
 
 import Prelude as P
 
-import GHC.Generics
-
+-- import GHC.Generics
+{-
 import Database.Beam as Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
 import Conduit
-
-import System.Random
-import Control.Applicative
-import Control.Monad.Catch
+-}
+--import System.Random
+--import Control.Applicative
+--import Control.Monad.Catch
 import Control.Monad
 
-import Data.Text
-import Data.ByteString
-import Data.Binary
-import Data.ByteArray
+--import Data.Text
+--import Data.ByteString
+--import Data.Binary
+--import Data.ByteArray
 
-import Data.Time.Calendar.OrdinalDate
-import Data.Time.Clock
-import Crypto.Hash
-import Crypto.Hash.IO
+--import Data.Time.Calendar.OrdinalDate
+--import Data.Time.Clock
+--import Crypto.Hash
+--import Crypto.Hash.IO
 
 import Data.Maybe as Maybe
-import System.IO
+--import System.IO
 -- import Data.Typeable
 -- import Data.UUID
 -- import Data.Vector as V
 
 import Data.Aeson as A
-import Data.List as List
+import Data.List as List (unzip)
 import Data.IORef
 import Data.Tree as Tree
 
-import Data.News
-import Data.User
+--import Data.News
+--import Data.User
 import Data.Types
-import Data.Utils
+--import Data.Utils
 
 import qualified Control.Server.Category as Category
 
@@ -59,9 +61,10 @@ withHandle fp g = do
         , Category.hChangeCategory = hChangeCategory rnc
         , Category.hCreateCategory = hCreateCategory rnc
         }
-      nc <- readIORef rnc
-      A.encodeFile fp nc
+      nc2 <- readIORef rnc
+      A.encodeFile fp nc2
       return a
+    _ -> error "fail is not opening"
 
 hGetCategory :: IORef NewsCategory -> IO NewsCategory
 hGetCategory nc = readIORef nc
@@ -69,10 +72,15 @@ hGetCategory nc = readIORef nc
 hChangeCategory :: IORef NewsCategory -> Category -> Maybe Category -> Maybe Category -> IO ()
 hChangeCategory rnc c (Just nrc) (Just nnc) = do
   modifyIORef rnc (\nc -> cutAddTree nc nrc c nnc)
+hChangeCategory rnc c (Just nrc) Nothing = do
+  modifyIORef rnc (\nc -> cutAddTree nc nrc c c)
+hChangeCategory rnc c Nothing (Just nnc) = do
+  modifyIORef rnc (\nc -> renameNode nc c nnc)
+hChangeCategory _ _ Nothing Nothing = return () -- loging the
 
 hCreateCategory :: IORef NewsCategory -> Category -> Category -> IO ()
 hCreateCategory rnc cr cn = do
-  modifyIORef rnc (\t-> addTree t cr cn [])
+  modifyIORef rnc (\t-> addTree t cr [Node cn []])
 {-
 catMaybesTree :: a -> Tree (Maybe a) -> Tree a
 catMaybesTree t 
@@ -84,10 +92,10 @@ catMaybesTree t
 cutAddTree :: Eq a => Tree a -> a -> a -> a -> Tree a
 cutAddTree t e n n2 = f $ cutTree t n
   where
-    f (sf,mt) = maybe (Node n sf) id (fmap (\tn-> addTree tn e n2 sf) mt)
+    f (sf,mt) = maybe (Node n sf) id (fmap (\tn-> addTree tn e [Node n2 sf] ) mt)
 
-addTree :: Eq a => Tree a -> a -> a -> [Tree a] -> Tree a
-addTree t r n lsf = snd $ mapTree t r f
+addTree :: Eq a => Tree a -> a -> [Tree a] -> Tree a
+addTree t r lsf = snd $ mapTree t r f
   where
     f a sf = ((),a,lsf ++ sf)
 
@@ -106,6 +114,9 @@ cutTree' t a = (\(x,y)->(join x,y)) $ mapTree t a f
   where
     f (Just _) sf = (sf,Nothing,[])
     f Nothing _ = ([],Nothing,[])
+
+renameNode :: Eq a => Tree a -> a -> a -> Tree a
+renameNode t a an = snd $ mapTree t a (\_ ft->((),an,ft))
 
 mapTree :: Eq a => Tree a -> a -> (a -> [Tree a] -> (b,a,[Tree a])) -> ([b],Tree a)
 mapTree t a f 

@@ -18,8 +18,8 @@ module Data.Imp.Server.Authorization
 
 import Prelude as P
 
-import Servant.API
-import Servant.Server as Servant
+--import Servant.API
+--import Servant.Server as Servant
 
 import GHC.Generics
 
@@ -28,9 +28,9 @@ import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
 import Conduit
 
-import Control.Applicative
+--import Control.Applicative
 import Control.Monad.Catch
-import Control.Monad.Error
+--import Control.Monad.Error
 
 import Data.Text
 import Data.ByteString as B
@@ -40,12 +40,12 @@ import Data.ByteArray
 import Data.Time.Calendar.OrdinalDate
 import Data.Time.Clock
 import Crypto.Hash
-import Crypto.Hash.IO
+--import Crypto.Hash.IO
 
 import Data.Maybe
-import Data.Typeable
+--import Data.Typeable
 
-import Data.News
+--import Data.News
 import Data.User
 import Data.Types
 import Data.Utils
@@ -65,13 +65,13 @@ data ErrorAuthorization
 
 Name -> Login -> Password -> FlagMakeNews -> FlagAdmin
 -}
-withServerAuthorization :: Config -> (ServerAuthorization.Handle IO -> IO a) -> IO a
-withServerAuthorization c f = error "Not implement"
+--withServerAuthorization :: Config -> (ServerAuthorization.Handle IO -> IO a) -> IO a
+--withServerAuthorization c f = error "Not implement"
 
 makeHandle :: Config -> Connection -> ServerAuthorization.Handle IO
 makeHandle config c =
   ServerAuthorization.Handle 
-    { ServerAuthorization.hCreateUser = hCreateUser c config
+    { ServerAuthorization.hCreateUser = hCreateUser c -- config
     , ServerAuthorization.hUserList = hUserList c config
     , ServerAuthorization.hCheckAccount = hCheckAccount c
     , ServerAuthorization.hGetAccount = hGetAccount c
@@ -86,24 +86,24 @@ hCatchErrorAuthorization ma c = catch ma c
 
 hCreatorNewsCheckFail :: IO ()
 hCreatorNewsCheckFail = do
-  throwM ErrorCreatorNewsCheck
+  throwM ServerAuthorization.ErrorCreatorNewsCheck
 
 hAdminCheckFail :: IO ()
 hAdminCheckFail = do
-  throwM ErrorAdminCheck
+  throwM ServerAuthorization.ErrorAdminCheck
 
 hAuthorizationFail :: IO ()
 hAuthorizationFail = do
-  throwM ErrorAuthorization
+  throwM ServerAuthorization.ErrorAuthorization
 
 hGetAccount :: Connection -> Login -> IO (Maybe UserPublic)
 hGetAccount c login = do
-  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ UserT {_userLogin = login})
+  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ loginUserT login)
   return $ fmap userTToUserPublic $ listToMaybe l
 
 hCheckAccount :: Connection -> Login -> Password -> IO (Maybe UserPublic)
 hCheckAccount c login p = do
-  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ UserT {_userLogin = login})
+  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ loginUserT login)
   case l of
     (x:_) -> do
       let px = _userPasswordHash x
@@ -121,7 +121,10 @@ hUserList conn config offset limit' = do -- error "Not implement"
     limit = if limit' > (confLimit config) 
       then (confLimit config)
       else limit'
-
+      
+userTToUserPublic :: (Columnar f Day ~ Day, Columnar f Name ~ Text,
+                            Columnar f FlagAdmin ~ Bool) =>
+                           UserT f -> UserPublic
 userTToUserPublic ut = UserPublic
       { nameUser = _userName ut
       , loginUser = _userLogin ut
@@ -130,14 +133,14 @@ userTToUserPublic ut = UserPublic
       , makeNewsUser = _userMakeNews ut
       }
 
-hCreateUser :: Connection -> Config ->  Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> IO UserPublic
-hCreateUser c conf name login password flagMN flagA = do
-  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ UserT {_userLogin = login})
+hCreateUser :: Connection -> Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> IO UserPublic
+hCreateUser c name login password flagMN flagA = do
+  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ loginUserT login)
        -- ) .| sinkList -- (sinkVectorN )
   case l of
     [] -> do 
       (UTCTime day _) <- getCurrentTime
-      BPC.runInsert c $ insert (_accounts accountDB) $ insertValues
+      _ <- BPC.runInsert c $ insert (_accounts accountDB) $ insertValues
         [ UserT 
           { _userName = name
           , _userLogin = login
@@ -165,6 +168,16 @@ hCreateUser c conf name login password flagMN flagA = do
 
 getHash :: Text -> ByteString
 getHash = convert . hashlazy  @SHA256 . encode
+
+loginUserT :: Login -> UserTId
+loginUserT login = UserT
+          { _userName = undefined -- name
+          , _userLogin = login
+          , _userPasswordHash = undefined -- getHash password
+          , _userDateCreation = undefined -- day
+          , _userAdmin = undefined --  flagA
+          , _userMakeNews = undefined -- flagMN
+          }
 
 data UserT f = UserT
   { _userName :: Columnar f Name

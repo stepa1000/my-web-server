@@ -4,7 +4,10 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Data.Imp.Server.News where
+module Data.Imp.Server.News 
+  ( Config(..)
+  , makeHandle
+  ) where
 
 import Prelude as P
 
@@ -13,37 +16,40 @@ import GHC.Generics
 import Database.Beam as Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
-import Conduit
+--import Conduit
 
-import System.Random
-import Control.Applicative
-import Control.Monad.Catch
-import Control.Monad
+import Database.Beam.Backend.SQL -- .BeamSqlBackendSynte
+import Database.Beam.Backend.SQL.SQL92
 
-import Data.Text
+--import System.Random
+--import Control.Applicative
+--import Control.Monad.Catch
+--import Control.Monad
+
+--import Data.Text
 import Data.ByteString
-import Data.Binary
-import Data.ByteArray
+--import Data.Binary
+--import Data.ByteArray
 
 import Data.Time.Calendar.OrdinalDate
 import Data.Time.Clock
-import Crypto.Hash
-import Crypto.Hash.IO
+--import Crypto.Hash
+--import Crypto.Hash.IO
 
 import Data.Maybe as Maybe
-import Data.Typeable
-import Data.UUID
+--import Data.Typeable
+--import Data.UUID
 import Data.Vector as V
 
 import Data.Aeson as A
-import Data.List
+import Data.List (sortBy)
 
 import Data.News
-import Data.User
+-- import Data.User
 import Data.Types
 import Data.Utils
 
-import qualified Control.Server.Photo as SPhoto
+-- import qualified Control.Server.Photo as SPhoto
 import qualified Data.Imp.Server.Photo as ImpSPhoto
 import qualified Control.Server.News as SNews
 
@@ -70,13 +76,41 @@ hSearchNews maxLimit c s = do
     -- searchNews (Just l) Nothing = limit_ l $ filter_ (filterSearch s) (all_ $ (_news newsDB)) -- -}
     searchNews _ _ = limit_ (maxLimit) $ offset_ 0 $ filter_ (filterSearch s) (all_ (_news newsDB))
 
+sortNews :: Maybe SortBy -> [News] -> [News]
 sortNews (Just SBDate) = sortBy (\a b-> compare (dateCreationNews a) (dateCreationNews b) )
 sortNews (Just SBAuthor) = sortBy (\a b-> compare (nameAuthor a) (nameAuthor b))
 sortNews (Just SBCategory) = sortBy (\a b-> compare (categoryNews a) (categoryNews b))
 sortNews (Just SBCountPhoto) = sortBy (\a b-> compare (V.length $ photoNews a) (V.length $ photoNews b))
+sortNews Nothing = id
 
 -- filterSearch :: Search -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
-filterSearch (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit') n =
+filterSearch :: (Columnar f NameNews
+                       ~ QGenExpr QValueContext be s ForString,
+                       HaskellLiteralForQExpr (Columnar f Day) ~ Day,
+                       -- HaskellLiteralForQExpr (Columnar f Name) ~ Text,
+                       HaskellLiteralForQExpr (Columnar f FlagPublished) ~ Bool,
+                       BeamSqlBackendIsString be ForString,
+                       SqlOrd (QGenExpr QValueContext be s) (Columnar f Day),
+                       HasSqlEqualityCheck be Integer,
+                       SqlEq (QGenExpr QValueContext be s) (Columnar f Day),
+                       SqlEq (QGenExpr QValueContext be s) (Columnar f NameNews),
+                       SqlEq (QGenExpr QValueContext be s) (Columnar f FlagPublished),
+                       SqlValable (Columnar f Day), SqlValable (Columnar f NameNews),
+                       SqlValable (Columnar f FlagPublished),
+                       HasSqlValueSyntax
+                         (Sql92ExpressionValueSyntax
+                            (Sql92SelectTableExpressionSyntax
+                               (Sql92SelectSelectTableSyntax
+                                  (Sql92SelectSyntax (BeamSqlBackendSyntax be)))))
+                         ForString,
+                       HasSqlValueSyntax
+                         (Sql92ExpressionValueSyntax
+                            (Sql92SelectTableExpressionSyntax
+                               (Sql92SelectSelectTableSyntax
+                                  (Sql92SelectSyntax (BeamSqlBackendSyntax be)))))
+                         Integer) =>
+                      Search -> NewsT f -> QGenExpr QValueContext be s Bool
+filterSearch (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' _ _ _) n =
   (filterDaySince mDaySince' n) &&.
   (filterDayAt mDayAt' n) &&.
   (filterDayUntil mDayUntil' n) &&.
@@ -304,7 +338,7 @@ data NewsT f = NewsT
   } deriving (Generic, Beamable)
 
 type NewsTId = NewsT Identity
-type NewsId = PrimaryKey NewsT Identity 
+-- type NewsId = PrimaryKey NewsT Identity 
 
 instance Table NewsT where
   data PrimaryKey NewsT f = NewsId (Columnar f NameNews)
