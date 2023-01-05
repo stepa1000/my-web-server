@@ -1,4 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+
 -- | The logger interface module. It should not define a specific
 -- implementation.
 module Control.Logger
@@ -13,7 +16,11 @@ module Control.Logger
   )
 where
 
+import GHC.Generics
+
 import qualified Data.Text as T
+
+import Data.Yaml
 
 -- | The logger handle. This is a public logger interface that can
 -- have different implementations. You can use it everywhere.
@@ -26,7 +33,7 @@ data Level
   | Info
   | Warning
   | Error
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic, ToJSON, FromJSON)
 
 textToLogLvl :: T.Text -> Level
 textToLogLvl t 

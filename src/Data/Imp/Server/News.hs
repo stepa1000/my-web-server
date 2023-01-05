@@ -42,6 +42,7 @@ import Data.Maybe as Maybe
 import Data.Vector as V
 
 import Data.Aeson as A
+import Data.Yaml as Y
 import Data.List (sortBy)
 
 import Data.News
@@ -54,7 +55,8 @@ import qualified Data.Imp.Server.Photo as ImpSPhoto
 import qualified Control.Server.News as SNews
 
 data Config = Config
-  {confMaxLimit :: Integer}
+  {confMaxLimit :: Integer} 
+  deriving (Generic, Y.ToJSON, Y.FromJSON)
 
 makeHandle :: Config -> Connection -> SNews.Handle IO
 makeHandle conf c = SNews.Handle 

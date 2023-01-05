@@ -34,7 +34,7 @@ import Control.Monad.Catch
 
 import Data.Text
 import Data.ByteString as B
-import Data.Binary
+import Data.Binary as Binary
 import Data.ByteArray
 
 import Data.Time.Calendar.OrdinalDate
@@ -44,6 +44,7 @@ import Crypto.Hash
 
 import Data.Maybe
 --import Data.Typeable
+import Data.Yaml
 
 --import Data.News
 import Data.User
@@ -55,7 +56,7 @@ import qualified Control.Server.Authorization as ServerAuthorization
 data Config = Config
   { -- confConnectInfo :: ConnectInfo
    confLimit :: Int
-  } deriving Show
+  } deriving (Show, Generic, ToJSON, FromJSON)
 {-
 data ErrorAuthorization 
   = ErrorAuthorization
@@ -167,7 +168,7 @@ hCreateUser c name login password flagMN flagA = do
         }
 
 getHash :: Text -> ByteString
-getHash = convert . hashlazy  @SHA256 . encode
+getHash = convert . hashlazy  @SHA256 . Binary.encode
 
 loginUserT :: Login -> UserTId
 loginUserT login = UserT

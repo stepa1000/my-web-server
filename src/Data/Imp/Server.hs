@@ -1,4 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# OPTIONS_GHC -Wwarn #-}
+-- -Wdefault
+
 module Data.Imp.Server 
   ( Config(..)
   , server
@@ -37,6 +42,7 @@ import Control.Monad.Error.Class
 -- import Data.Maybe
 import Data.Vector as V
 import Data.ByteString as B
+import Data.Yaml
 
 import Data.News
 import Data.User
@@ -47,8 +53,15 @@ data Config = Config
   , confFailPathToCategoryNews :: FilePath
   , confAuthorization :: Authorization.Config
   , confConnectionInfo :: ConnectInfo
-  , confLogger :: ImpLogger.Config
-  }
+  , confLogger :: ImpLogger.PreConfig
+  } deriving (Generic, ToJSON, FromJSON)
+{-
+newtype ConnectionInfo = ConnectionInfo 
+  { unConnectionInfo :: ConnectInfo}
+  deriving (Generic,ToJSON,FromJSON)
+-}
+instance ToJSON ConnectInfo
+instance FromJSON ConnectInfo
 
 server :: IO () -> Config -> IO ()
 server shutdown config = do
@@ -192,7 +205,7 @@ withHandle conf g = do
   let snh = News.makeHandle (confNews conf) con
   let ah = Authorization.makeHandle (confAuthorization conf) con
   Category.withHandle (confFailPathToCategoryNews conf) (\ ch -> do
-    ImpLogger.withHandle (confLogger conf) (\ lh -> do
+    ImpLogger.withPreConf (confLogger conf) (\ lh -> do
       a <- g $ Server.Handle
         { Server.handleLogger = lh
         , Server.handleNews = snh

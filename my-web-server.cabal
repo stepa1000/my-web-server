@@ -32,6 +32,7 @@ library
       Control.Server.Category
       Control.Server.News
       Control.Server.Photo
+      Data.Config
       Data.Imp.Server
       Data.Imp.Server.Authorization
       Data.Imp.Server.Category
@@ -42,7 +43,6 @@ library
       Data.Types
       Data.User
       Data.Utils
-      Lib
   other-modules:
       Paths_my_web_server
   hs-source-dirs:
