@@ -8,34 +8,20 @@ module AuthorizationSpec (spec) where
 
 import Prelude as P
 
-import GHC.Generics
-
 import Database.Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
-import Conduit
 
-import Control.Applicative
-
-import Data.Text
-import Data.ByteString
-import Data.Binary
-import Data.ByteArray
-
-import Data.Time.Calendar.OrdinalDate
 import Data.Time.Clock
 import Data.Maybe
 
-import Crypto.Hash
-import Crypto.Hash.IO
-
 import Test.Hspec 
-  (Expectation, Spec, around, describe, it, shouldBe, shouldNotBe, shouldSatisfy)
-import Test.QuickCheck (NonNegative (..), property, (==>))
+  ({-Expectation,-} Spec, around, describe, it, shouldBe {-, shouldNotBe, shouldSatisfy-})
+--import Test.QuickCheck (NonNegative (..), property, (==>))
 
-import Data.News
+--import Data.News
 import Data.User
-import Data.Types
+--import Data.Types
 
 import qualified Control.Server.Authorization as SAuthorization
 import qualified Data.Imp.Server.Authorization as ImpSAuthorization
@@ -51,7 +37,7 @@ spec =
         let fmn = False
         let fa = False
         up <- SAuthorization.hCreateUser h name login password fmn fa
-        BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
+        _ <- BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
           (\a-> ImpSAuthorization._userLogin a ==. "login1")
         (UTCTime day _) <- getCurrentTime
         up `shouldBe` (UserPublic 
@@ -68,9 +54,9 @@ spec =
         let password = "password1"
         let fmn = False
         let fa = False
-        SAuthorization.hCreateUser h name login password fmn fa
+        _ <- SAuthorization.hCreateUser h name login password fmn fa
         lup <- SAuthorization.hUserList h 0 3
-        BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
+        _ <- BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
           (\a-> ImpSAuthorization._userLogin a ==. "login1")
         (UTCTime day _) <- getCurrentTime
         lup `shouldBe` [UserPublic 
@@ -86,9 +72,9 @@ spec =
         let password = "password1"
         let fmn = False
         let fa = False
-        SAuthorization.hCreateUser h name login password fmn fa
+        _ <- SAuthorization.hCreateUser h name login password fmn fa
         up <- fromJust <$> SAuthorization.hCheckAccount h login password
-        BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
+        _ <- BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
           (\a-> ImpSAuthorization._userLogin a ==. "login1")
         (UTCTime day _) <- getCurrentTime
         up `shouldBe` (UserPublic 
@@ -105,9 +91,9 @@ spec =
         let password = "password1"
         let fmn = False
         let fa = False
-        SAuthorization.hCreateUser h name login password fmn fa
+        _ <- SAuthorization.hCreateUser h name login password fmn fa
         up <- fromJust <$> SAuthorization.hGetAccount h login
-        BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
+        _ <- BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
           (\a-> ImpSAuthorization._userLogin a ==. "login1")
         (UTCTime day _) <- getCurrentTime
         up `shouldBe` (UserPublic 
@@ -133,13 +119,18 @@ createUserTest i = do
 
 withDatabase :: ((SAuthorization.Handle IO, Connection) -> IO ()) -> IO ()
 withDatabase f = do 
-  (h,c) <- ImpSAuthorization.makeHandle configAuthorization
+  c <- Beam.connect testDBConnect
+  let h = ImpSAuthorization.makeHandle configAuthorization c
   f (h,c)
   Beam.close c
 
+configAuthorization :: ImpSAuthorization.Config
 configAuthorization = ImpSAuthorization.Config
-  { ImpSAuthorization.confConnectInfo = testDBConnect
-  , ImpSAuthorization.confLimit = 3
+  { ImpSAuthorization.confLimit = 3
   }
+--  { ImpSAuthorization.confConnectInfo = testDBConnect
+--  , ImpSAuthorization.confLimit = 3
+--  }
 
+testDBConnect :: ConnectInfo
 testDBConnect = defaultConnectInfo {connectUser="stepan", connectDatabase = "testDB"}

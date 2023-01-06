@@ -17,6 +17,7 @@ import Data.Time.Calendar.OrdinalDate  -- .Clock
 import Data.Aeson
 
 import Data.Types
+
 -- type PhotoURL = Text
 
 data News = News
@@ -35,6 +36,6 @@ data NewsCreate = NewsCreate
   , categoryNewsCreate :: Category
   , textNewsCreate :: Content
   , photoNewsCreate :: Vector Photo
-  , newPhotoNewsCreate :: Vector Base64 -- B.ByteString
+  , newPhotoNewsCreate :: Vector Base64 -- B.ByteStrings
   , publicNewsCreate :: FlagPublished
   } deriving (Generic, ToJSON, FromJSON)

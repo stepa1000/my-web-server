@@ -81,7 +81,7 @@ server shutdown config = do
       = liftIO $ Server.handleServerFind sh Nothing 
           (Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' Nothing mSortBy' mOffSet' mLimit')
     getNewsPrivateS sh bad mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit'
-      = liftIO $ Server.handleServerFind sh (Just bad) 
+      = handleErrorAuthorization sh $ Server.handleServerFind sh (Just bad) 
         (Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit' )
     categoryCreateS sh bad (Just rc) (Just nc) = liftIO $ Server.handleCategoryCreate sh bad rc nc
     categoryCreateS sh _ _ _ = do
@@ -89,13 +89,13 @@ server shutdown config = do
       liftIO $ Server.handleCategoryGet sh
     categoryGetS sh = liftIO $ Server.handleCategoryGet sh
     categoryChangeS sh bad (Just cn) mrc mrnn 
-      = liftIO $ Server.handleCategoryChange sh bad cn mrc mrnn
+      = handleErrorAuthorization sh $ Server.handleCategoryChange sh bad cn mrc mrnn
     categoryChangeS sh _ _ _ _ = do
       liftIO $ Logger.logError (Server.handleLogger sh) "categoryChange: parametrs not Just"
       liftIO $ Server.handleCategoryGet sh
     createNewsNewS :: Server.Handle IO -> UserPublic -> NewsCreate -> Servant.Handler News
     createNewsNewS sh bad nn = do
-      mn <- liftIO $ Server.handleCreateNewsNew sh bad nn
+      mn <- handleErrorAuthorization sh $ Server.handleCreateNewsNew sh bad nn
       case mn of
         (Just n) -> return n
         Nothing -> do
@@ -117,7 +117,7 @@ server shutdown config = do
                     -> [Base64]  
                     -> Servant.Handler News
     createNewsEdditS sh bad (Just nn) c nnn ca pu ph nph = do 
-      mu <- liftIO $ Server.handleServerEditNews sh bad nn c nnn ca pu (V.fromList ph) (V.fromList nph)
+      mu <- handleErrorAuthorization sh $ Server.handleServerEditNews sh bad nn c nnn ca pu (V.fromList ph) (V.fromList nph)
       case mu of
         (Just u) -> return u
         _ -> do
@@ -145,7 +145,7 @@ server shutdown config = do
                -> Maybe FlagAdmin 
                -> Servant.Handler UserPublic
     userCreateS sh bad (Just n) (Just l) (Just p) (Just fm) (Just fa) = do
-      mu <- liftIO $ Server.handleUserCreate sh bad n l p fm fa
+      mu <- handleErrorAuthorization sh $ Server.handleUserCreate sh bad n l p fm fa
       case mu of
         (Just u) -> return u
         _ -> do
@@ -187,6 +187,32 @@ server shutdown config = do
          , errHeaders = []
         }
  
+handleErrorAuthorization :: Server.Handle IO -> IO a -> Servant.Handler a
+handleErrorAuthorization h m = do
+  e <- liftIO $ ServerAuthorization.handleCatchErrorAuthorization (Server.handleAuthorization h) m
+  case e of
+    (Left ServerAuthorization.ErrorAuthorization) ->
+      throwError $ ServerError
+        { errHTTPCode = 400
+        , errReasonPhrase = "authorization fail"
+        , errBody = fromStrict $ B.empty
+        , errHeaders = []
+        }
+    (Left ServerAuthorization.ErrorAdminCheck) -> 
+      throwError $ ServerError
+        { errHTTPCode = 404
+        , errReasonPhrase = ""
+        , errBody = fromStrict $ B.empty
+        , errHeaders = []
+        }
+    (Left ServerAuthorization.ErrorCreatorNewsCheck) ->
+      throwError $ ServerError
+        { errHTTPCode = 400
+        , errReasonPhrase = "user cannot create news"
+        , errBody = fromStrict $ B.empty
+        , errHeaders = []
+        }
+    (Right a) -> return a
           
 authcheck :: Server.Handle IO -> BasicAuthCheck UserPublic
 authcheck sh = BasicAuthCheck $ \ bad -> do

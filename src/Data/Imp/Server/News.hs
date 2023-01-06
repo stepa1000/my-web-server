@@ -266,6 +266,8 @@ hModifNews c nn f = do
   l <- listStreamingRunSelect c $ lookup_ (_news newsDB) (primaryKey $ nameNewsT nn)
   case l of
     (x:_) -> do
+      _ <- BPC.runDelete c $ delete (_news newsDB)
+        (\n-> _newsName n ==. (val_ $ _newsName x) )
       let mn = fmap f $ newsTToNews x
       _ <- traverse (\n-> do
           BPC.runInsert c $ Beam.insert (_news newsDB) $ insertValues

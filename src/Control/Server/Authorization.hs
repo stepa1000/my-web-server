@@ -7,6 +7,7 @@ module Control.Server.Authorization
   , handleWithAccount
   , handleCheckAccountStrong
   , handleCheckAccount
+  , handleCatchErrorAuthorization
   ) where
 
 import Prelude as P
@@ -39,6 +40,8 @@ data ErrorAuthorization
   | ErrorCreatorNewsCheck
   deriving (Typeable, Show, Eq, Exception)
 
+handleCatchErrorAuthorization :: Monad m => Handle m -> m a -> m (Either ErrorAuthorization a)
+handleCatchErrorAuthorization h ma = hCatchErrorAuthorization h (fmap Right ma) (return . Left)
 
 handleWithAccount :: Monad m => Handle m -> Logined -> (UserPublic -> m a) -> m (Maybe a)
 handleWithAccount h l f = do
