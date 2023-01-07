@@ -7,6 +7,9 @@
 module Data.Imp.Server.News 
   ( Config(..)
   , makeHandle
+  , NewsT(..) -- ????
+  , NewsDB(..)
+  , newsDB
   ) where
 
 import Prelude as P
@@ -168,7 +171,7 @@ filterForStringName :: (Columnar f NameNews
                                             (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
                                 Integer) =>
                              w2 -> NewsT f -> QGenExpr QValueContext w1 s Bool
-filterForStringName s n = (position_ @_ @_ @Integer (val_ s) (_newsName n)) /=. (val_ 0)
+filterForStringName s n = (position_ @_ @_ @Integer (val_ s) (_newsNewsName n)) /=. (val_ 0)
 --filterForStringName Nothing _ = val_ True
 
 filterContent :: (Columnar f Content
@@ -208,7 +211,7 @@ filterNewsName :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
                   SqlValable (Columnar f NameNews)) 
                   => Maybe (HaskellLiteralForQExpr (Columnar f NameNews))
                   -> NewsT f -> expr Bool
-filterNewsName (Just nn) n = (_newsName n) ==. (val_ nn)
+filterNewsName (Just nn) n = (_newsNewsName n) ==. (val_ nn)
 filterNewsName Nothing _ = val_ True
 
 -- filterCategory :: Maybe Category -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
@@ -267,7 +270,7 @@ hModifNews c nn f = do
   case l of
     (x:_) -> do
       _ <- BPC.runDelete c $ delete (_news newsDB)
-        (\n-> _newsName n ==. (val_ $ _newsName x) )
+        (\n-> _newsNewsName n ==. (val_ $ _newsNewsName x) )
       let mn = fmap f $ newsTToNews x
       _ <- traverse (\n-> do
           BPC.runInsert c $ Beam.insert (_news newsDB) $ insertValues
@@ -296,7 +299,7 @@ newsTToNews :: NewsTId -> Maybe News
 newsTToNews n = do
   v <- A.decode $ fromStrict $ _newsPhoto n
   return $ News
-    { nameNews = _newsName n
+    { nameNews = _newsNewsName n
     , loginAuthor = _newsLoginAuthor n
     , nameAuthor = _newsNameAuthor n
     , dateCreationNews = _newsDateCreation n
@@ -308,7 +311,7 @@ newsTToNews n = do
 
 newsToNewsT :: News -> NewsTId
 newsToNewsT n = NewsT
-  { _newsName = nameNews n
+  { _newsNewsName = nameNews n
   , _newsLoginAuthor = loginAuthor n
   , _newsNameAuthor = nameAuthor n
   , _newsDateCreation = dateCreationNews n
@@ -320,7 +323,7 @@ newsToNewsT n = NewsT
 
 nameNewsT :: NameNews -> NewsTId
 nameNewsT nn = NewsT 
-    { _newsName = nn
+    { _newsNewsName = nn
     , _newsLoginAuthor = undefined
     , _newsNameAuthor = undefined
     , _newsDateCreation = undefined
@@ -331,7 +334,7 @@ nameNewsT nn = NewsT
     }
 
 data NewsT f = NewsT
-  { _newsName :: Columnar f NameNews
+  { _newsNewsName :: Columnar f NameNews
   , _newsLoginAuthor :: Columnar f Login
   , _newsNameAuthor :: Columnar f Name
   , _newsDateCreation :: Columnar f Day
@@ -347,7 +350,7 @@ type NewsTId = NewsT Identity
 instance Table NewsT where
   data PrimaryKey NewsT f = NewsId (Columnar f NameNews)
     deriving (Generic, Beamable)
-  primaryKey = NewsId . _newsName
+  primaryKey = NewsId . _newsNewsName
 
 data NewsDB f = NewsDB
   { _news :: f (TableEntity NewsT) }

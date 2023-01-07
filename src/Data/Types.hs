@@ -24,6 +24,7 @@ module Data.Types
   , Logined(..)
   , Search(..)
   , SortBy(..)
+  , emptySearch
   ) where
 
 import GHC.Generics
@@ -65,6 +66,22 @@ type FlagAdmin = Bool
 data Logined = Logined
   { loginLogined :: Login
   , passwordLogined :: Password
+  }
+
+emptySearch :: Search
+emptySearch = Search
+  { mDayAtSerch = Nothing
+  , mDayUntil = Nothing
+  , mDaySince = Nothing
+  , mName = Nothing
+  , mCategory = Nothing
+  , mNewsName = Nothing
+  , mContent = Nothing
+  , mForString = Nothing
+  , mFlagPublished = Nothing
+  , mSortBy = Nothing
+  , mOffSet = Nothing
+  , mLimit = Nothing
   }
 
 data Search = Search

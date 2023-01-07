@@ -122,6 +122,8 @@ withDatabase f = do
   c <- Beam.connect testDBConnect
   let h = ImpSAuthorization.makeHandle configAuthorization c
   f (h,c)
+  _ <- BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
+          (\_-> val_ True )
   Beam.close c
 
 configAuthorization :: ImpSAuthorization.Config

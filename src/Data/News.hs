@@ -29,7 +29,7 @@ data News = News
   , textNews :: Content
   , photoNews :: Vector Photo
   , publicNews :: FlagPublished
-  } deriving (Generic, ToJSON, FromJSON)
+  } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 data NewsCreate = NewsCreate 
   { nameNewsCreate :: NameNews -- UTCTime
