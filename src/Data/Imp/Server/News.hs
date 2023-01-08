@@ -10,6 +10,8 @@ module Data.Imp.Server.News
   , NewsT(..) -- ????
   , NewsDB(..)
   , newsDB
+--  , hSearchNewsName -- !!!!!!!!
+  , hSearchContent -- !!!!!!
   ) where
 
 import Prelude as P
@@ -47,6 +49,7 @@ import Data.Vector as V
 import Data.Aeson as A
 import Data.Yaml as Y
 import Data.List (sortBy)
+-- import Debug.Trace
 
 import Data.News
 -- import Data.User
@@ -80,6 +83,27 @@ hSearchNews maxLimit c s = do
     -- searchNews Nothing (Just o) = offset_ o $ filter_ (filterSearch s) (all_ $ (_news newsDB))orderBy_ (funOrder $ mSortBy s)
     -- searchNews (Just l) Nothing = limit_ l $ filter_ (filterSearch s) (all_ $ (_news newsDB)) -- -}
     searchNews _ _ = limit_ (maxLimit) $ offset_ 0 $ filter_ (filterSearch s) (all_ (_news newsDB))
+{-
+hSearchNewsName :: Integer -> Connection -> NameNews -> IO [News]
+hSearchNewsName maxLimit c n =  do
+  lm <- (fmap . fmap) newsTToNews $ listStreamingRunSelect c $ select $ searchNews Nothing Nothing
+  return $ Maybe.catMaybes lm
+  where 
+    searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_ (filterNewsName (Just n)) (all_ (_news newsDB)) 
+    -- searchNews Nothing (Just o) = offset_ o $ filter_ (filterSearch s) (all_ $ (_news newsDB))orderBy_ (funOrder $ mSortBy s)
+    -- searchNews (Just l) Nothing = limit_ l $ filter_ (filterSearch s) (all_ $ (_news newsDB)) -- 
+    searchNews _ _ = limit_ (maxLimit) $ offset_ 0 $ filter_ (filterNewsName (Just n)) (all_ (_news newsDB))
+-}
+
+hSearchContent :: Integer -> Connection -> Content -> IO [News]
+hSearchContent maxLimit c content =  do
+  lm <- (fmap . fmap) newsTToNews $ listStreamingRunSelect c $ select $ searchNews Nothing Nothing
+  return $ Maybe.catMaybes lm
+  where 
+    searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_ (filterContent (Just content)) (all_ (_news newsDB)) 
+    -- searchNews Nothing (Just o) = offset_ o $ filter_ (filterSearch s) (all_ $ (_news newsDB))orderBy_ (funOrder $ mSortBy s)
+    -- searchNews (Just l) Nothing = limit_ l $ filter_ (filterSearch s) (all_ $ (_news newsDB)) -- 
+    searchNews _ _ = limit_ (maxLimit) $ offset_ 0 $ filter_ (filterContent (Just content)) (all_ (_news newsDB))
 
 sortNews :: Maybe SortBy -> [News] -> [News]
 sortNews (Just SBDate) = sortBy (\a b-> compare (dateCreationNews a) (dateCreationNews b) )
@@ -193,7 +217,8 @@ filterContent :: (Columnar f Content
                                       (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
                           Integer) =>
                        Maybe w2 -> NewsT f -> QGenExpr QValueContext w1 s Bool
-filterContent (Just c) n = (position_ @_ @_ @Integer (val_ c) (_newsContent n)) /=. (val_ 0)
+filterContent (Just c) n = (position_ @_ @_ @Integer (val_ c) (_newsContent n)) /=. 
+                           (val_ @(QGenExpr QValueContext _ _ Integer) 0)
 filterContent Nothing _ = val_ True
 
 -- filterFlagPublished :: Maybe FlagPublished -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
@@ -211,7 +236,7 @@ filterNewsName :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
                   SqlValable (Columnar f NameNews)) 
                   => Maybe (HaskellLiteralForQExpr (Columnar f NameNews))
                   -> NewsT f -> expr Bool
-filterNewsName (Just nn) n = (_newsNewsName n) ==. (val_ nn)
+filterNewsName (Just nn) n = ({-traceShowId-} (_newsNewsName n) ) ==. (val_ ({-traceShowId-} nn))
 filterNewsName Nothing _ = val_ True
 
 -- filterCategory :: Maybe Category -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool

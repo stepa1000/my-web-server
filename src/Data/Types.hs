@@ -70,10 +70,10 @@ data Logined = Logined
 
 emptySearch :: Search
 emptySearch = Search
-  { mDayAtSerch = Nothing
+  { mDayAtSearch = Nothing
   , mDayUntil = Nothing
   , mDaySince = Nothing
-  , mName = Nothing
+  , mAuthor = Nothing
   , mCategory = Nothing
   , mNewsName = Nothing
   , mContent = Nothing
@@ -85,10 +85,10 @@ emptySearch = Search
   }
 
 data Search = Search
-  { mDayAtSerch :: Maybe DayAt
+  { mDayAtSearch :: Maybe DayAt
   , mDayUntil :: Maybe DayUntil
   , mDaySince :: Maybe DaySince
-  , mName :: Maybe Name
+  , mAuthor :: Maybe Name
   , mCategory :: Maybe Category
   , mNewsName :: Maybe NewsName
   , mContent :: Maybe Content

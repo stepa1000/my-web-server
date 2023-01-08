@@ -36,20 +36,58 @@ spec =
   around withDatabase $
     describe "test for database news" $ do
       it "create News" $ \(h,c) -> do
-        n <- handleCreateNews h loginTest nameTest $ NewsCreate 
-          { nameNewsCreate = pack $ "nameNews"
-          , categoryNewsCreate = pack $ "General"
-          , textNewsCreate = pack $ "textNews"
-          , photoNewsCreate = V.empty
-          , newPhotoNewsCreate = V.empty
-          , publicNewsCreate = False
-          }
+        n <- handleCreateNews h loginTest nameTest newsCreateTest
         l <- handleFind h emptySearch
         _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsName a ==. (val_ $ nameNews n))
+               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
         l `shouldBe` [n]
-      it "search news" $ \(h,_) -> do
-        l <- handleFind h $ emptySearch {mName = Just "nameNews5" } -- {mForString = Just "nameNews"}
+{-      it "debug simple search news" $ \(h,c)-> do
+        n <- handleCreateNews h loginTest nameTest newsCreateTest
+        l <- hSearchNewsName 3 c "nameNews"
+        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
+               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
+        l `shouldBe` [n]
+-}
+      it "simple search news full" $ \(h,c)-> do
+        n <- handleCreateNews h loginTest nameTest newsCreateTest 
+        l <- handleFind h $ idSearch n -- emptySearch {mName = Just "nameNews" }
+        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
+               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
+        l `shouldBe` [n]
+      it "simple search news" $ \(h,c)-> do
+        n <- handleCreateNews h loginTest nameTest newsCreateTest 
+        l <- handleFind h $ emptySearch {mNewsName = Just "nameNews" }
+        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
+               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
+        l `shouldBe` [n]
+      it "simple search news date" $ \(h,c)-> do
+        n <- handleCreateNews h loginTest nameTest newsCreateTest 
+        l <- handleFind h $ dateSearch n
+        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
+               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
+        l `shouldBe` [n]
+      it "simple search news published" $ \(h,c)-> do
+        n <- handleCreateNews h loginTest nameTest newsCreateTest 
+        l <- handleFind h $ publicSearch n
+        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
+               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
+        l `shouldBe` [n]
+      it "simple search news content" $ \(h,c)-> do
+        n <- handleCreateNews h loginTest nameTest newsCreateTest 
+        l <- handleFind h $ contentSearch n
+        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
+               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
+        l `shouldBe` [n]
+      it "debug simple search news content" $ \(h,c)-> do
+        n <- handleCreateNews h loginTest nameTest newsCreateTest 
+        l <- hSearchContent 3 c (pack $ "textNews") -- handleFind h $ contentSearch n
+        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
+               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
+        l `shouldBe` [n]
+      it "search news" $ \(h,c) -> do
+        _ <- handleCreateNewsTestN h 10
+        l <- handleFind h $ emptySearch {mNewsName = Just "nameNews5" } -- {mForString = Just "nameNews"}
+        delateNews c
         (fmap textNews l) `shouldBe` ["textNews5"]
 
 addUser :: SAuthorization.Handle IO -> IO ()
@@ -70,7 +108,7 @@ withDatabase f = do
   addUser hAuth
   let h = ISN.makeHandle configNews c
   delateNews c
-  _ <- handleCreateNewsTestN h 10
+  -- _ <- handleCreateNewsTestN h 10
   f (h,c)
   deleteUser c
   delateNews c
@@ -108,6 +146,80 @@ nameTest = "nameTest"
 
 passwordTest :: Password
 passwordTest = "testPassword"
+
+dateSearch :: News -> Search
+dateSearch n = Search
+  { mDayAtSearch = Just $ dateCreationNews n
+  , mDayUntil = Just $ dateCreationNews n
+  , mDaySince = Just $ dateCreationNews n
+  , mAuthor = Nothing -- Author
+  , mCategory = Nothing --"General"
+  , mNewsName = Nothing
+  , mContent = Nothing
+  , mForString = Nothing
+  , mFlagPublished = Nothing
+  , mSortBy = Nothing
+  , mOffSet = Nothing
+  , mLimit = Nothing
+  }
+
+publicSearch :: News -> Search
+publicSearch n = Search
+  { mDayAtSearch = Nothing
+  , mDayUntil = Nothing
+  , mDaySince = Nothing
+  , mAuthor = Nothing -- Author
+  , mCategory = Nothing --"General"
+  , mNewsName = Nothing
+  , mContent = Nothing
+  , mForString = Nothing
+  , mFlagPublished = Just $ publicNews n
+  , mSortBy = Nothing
+  , mOffSet = Nothing
+  , mLimit = Nothing
+  }
+
+contentSearch :: News -> Search
+contentSearch n = Search
+  { mDayAtSearch = Nothing
+  , mDayUntil = Nothing
+  , mDaySince = Nothing
+  , mAuthor = Nothing -- Author
+  , mCategory = Nothing --"General"
+  , mNewsName = Nothing
+  , mContent = Just $ textNews n
+  , mForString = Nothing
+  , mFlagPublished = Nothing
+  , mSortBy = Nothing
+  , mOffSet = Nothing
+  , mLimit = Nothing
+  }
+
+idSearch :: News -> Search
+idSearch n = Search
+  { mDayAtSearch = Just $ dateCreationNews n
+  , mDayUntil = Just $ dateCreationNews n
+  , mDaySince = Just $ dateCreationNews n
+  , mAuthor = Just $ nameAuthor n -- Author
+  , mCategory = Just $ categoryNews n --"General"
+  , mNewsName = Just $ nameNews n
+  , mContent = Just $ textNews n
+  , mForString = Nothing
+  , mFlagPublished = Just $ publicNews n
+  , mSortBy = Nothing
+  , mOffSet = Nothing
+  , mLimit = Nothing
+  }
+
+newsCreateTest :: NewsCreate
+newsCreateTest = NewsCreate 
+  { nameNewsCreate = pack $ "nameNews"
+  , categoryNewsCreate = pack $ "General"
+  , textNewsCreate = pack $ "textNews"
+  , photoNewsCreate = V.empty
+  , newPhotoNewsCreate = V.empty
+  , publicNewsCreate = False
+  }
 
 newsCreateN :: Int -> [NewsCreate]
 newsCreateN i = fmap f [0..i]

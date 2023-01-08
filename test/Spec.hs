@@ -13,5 +13,4 @@ main = hspec spec
 
 spec :: Spec
 spec = do
-  AuthorizationSpec.spec >>= 
-  (const NewsSpec.spec)
+  AuthorizationSpec.spec >>= (const NewsSpec.spec)
