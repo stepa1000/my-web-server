@@ -15,6 +15,7 @@ import Database.Beam.Postgres.Conduit as BPC
 --import Data.Time.Clock
 --import Data.Maybe
 import Data.Text
+import qualified Data.ByteString as B
 import Data.Vector as V
 
 import Test.Hspec 
@@ -84,6 +85,12 @@ spec =
         _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
                (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
         l `shouldBe` [n]
+      it "debug position" $ \(h,c)-> do
+        n <- handleCreateNews h loginTest nameTest newsCreateTest 
+        b <- debugPosition c (pack $ "textNews") -- handleFind h $ contentSearch n
+        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
+               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
+        b `shouldBe` B.empty
       it "search news" $ \(h,c) -> do
         _ <- handleCreateNewsTestN h 10
         l <- handleFind h $ emptySearch {mNewsName = Just "nameNews5" } -- {mForString = Just "nameNews"}

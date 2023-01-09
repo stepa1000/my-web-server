@@ -12,6 +12,7 @@ module Data.Imp.Server.News
   , newsDB
 --  , hSearchNewsName -- !!!!!!!!
   , hSearchContent -- !!!!!!
+  , debugPosition -- !!!!
   ) where
 
 import Prelude as P
@@ -100,11 +101,25 @@ hSearchContent maxLimit c content =  do
   lm <- (fmap . fmap) newsTToNews $ listStreamingRunSelect c $ select $ searchNews Nothing Nothing
   return $ Maybe.catMaybes lm
   where 
-    searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_ (filterContent (Just content)) (all_ (_news newsDB)) 
+    searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_' (filterContent' (Just content)) (all_ (_news newsDB)) 
     -- searchNews Nothing (Just o) = offset_ o $ filter_ (filterSearch s) (all_ $ (_news newsDB))orderBy_ (funOrder $ mSortBy s)
     -- searchNews (Just l) Nothing = limit_ l $ filter_ (filterSearch s) (all_ $ (_news newsDB)) -- 
-    searchNews _ _ = limit_ (maxLimit) $ offset_ 0 $ filter_ (filterContent (Just content)) (all_ (_news newsDB))
+    searchNews _ _ = limit_ (maxLimit) $ offset_ 0 $ filter_' (filterContent' (Just content)) (all_ (_news newsDB))
 
+debugPosition :: Connection -> Content -> IO ByteString -- IO [Integer]
+debugPosition c content = do
+  -- listStreamingRunSelect c $ select $ do
+  pgTraceStmtIO' @(SqlSelect Postgres Integer)  c $ select $ do
+    n <- all_ (_news newsDB)
+    return $ position_ @_ @_ @Integer (val_ content) (_newsContent n)
+{- selectWith $ do
+    n <- selecting (all_ (_news newsDB))
+    i <- val_ $ position_ @_ @_ @Integer (val_ content) (_newsContent $ val_ $ reuse n)
+    return i
+-}
+{- select $ 
+    (position_ @_ @_ @Integer (val_ content) (_newsContent (all_ (_news newsDB))))
+-}
 sortNews :: Maybe SortBy -> [News] -> [News]
 sortNews (Just SBDate) = sortBy (\a b-> compare (dateCreationNews a) (dateCreationNews b) )
 sortNews (Just SBAuthor) = sortBy (\a b-> compare (nameAuthor a) (nameAuthor b))
@@ -220,6 +235,29 @@ filterContent :: (Columnar f Content
 filterContent (Just c) n = (position_ @_ @_ @Integer (val_ c) (_newsContent n)) /=. 
                            (val_ @(QGenExpr QValueContext _ _ Integer) 0)
 filterContent Nothing _ = val_ True
+
+filterContent' :: (Columnar f Content
+                        ~ QGenExpr QValueContext w1 s w2,
+                        HasSqlEqualityCheck w1 Integer,
+                        Database.Beam.Backend.SQL.BeamSqlBackendIsString w1 w2,
+                        Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
+                          (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
+                             (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
+                                (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
+                                   (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
+                                      (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
+                          w2,
+                        Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
+                          (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
+                             (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
+                                (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
+                                   (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
+                                      (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
+                          Integer) =>
+                       Maybe w2 -> NewsT f -> QGenExpr QValueContext w1 s SqlBool
+filterContent' (Just c) n = (position_ @_ @_ @Integer (val_ c) (_newsContent n)) /=?. 
+                           (val_ @(QGenExpr QValueContext _ _ Integer) 0)
+filterContent' Nothing _ = sqlBool_ $ val_ True
 
 -- filterFlagPublished :: Maybe FlagPublished -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
 filterFlagPublished :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
@@ -383,29 +421,4 @@ data NewsDB f = NewsDB
 
 newsDB :: DatabaseSettings be NewsDB
 newsDB = defaultDbSettings
-{-
-data UserT f = UserT
-  { _userName :: Columnar f Name
-  , _userLogin :: Columnar f Login
-  , _userPasswordHash :: Columnar f ByteString
-  , _userDateCreation :: Columnar f Day
-  , _userAdmin :: Columnar f FlagAdmin
-  , _userMakeNews :: Columnar f FlagMakeNews
-  } deriving (Generic, Beamable)
-
-type UserTId = UserT Identity
-type UserId = PrimaryKey UserT Identity
-
-instance Table UserT where
-  data PrimaryKey UserT f = UserId (Columnar f Login) 
-    deriving (Generic, Beamable)
-  primaryKey = UserId . _userLogin
-
-data AccountDB f = AccountDB
-  { _accounts :: f (TableEntity UserT) } 
-  deriving (Generic, Database be)
-
-accountDB :: DatabaseSettings be AccountDB
-accountDB = defaultDbSettings 
--}
 
