@@ -124,6 +124,8 @@ test-suite my-web-server-test
   other-modules:
       AuthorizationSpec
       NewsSpec
+      ServerSpec
+      Utils.News
       Paths_my_web_server
   hs-source-dirs:
       test

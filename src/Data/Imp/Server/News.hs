@@ -3,6 +3,9 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# OPTIONS_GHC -Wwarn #-}
 
 module Data.Imp.Server.News 
   ( Config(..)
@@ -22,10 +25,11 @@ import GHC.Generics
 import Database.Beam as Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
+import Database.Beam.Query.Internal
 --import Conduit
 
-import Database.Beam.Backend.SQL -- .BeamSqlBackendSynte
-import Database.Beam.Backend.SQL.SQL92
+-- import Database.Beam.Backend.SQL -- .BeamSqlBackendSynte
+-- import Database.Beam.Backend.SQL.SQL92
 
 --import System.Random
 --import Control.Applicative
@@ -50,6 +54,7 @@ import Data.Vector as V
 import Data.Aeson as A
 import Data.Yaml as Y
 import Data.List (sortBy)
+import Data.String
 -- import Debug.Trace
 
 import Data.News
@@ -111,7 +116,28 @@ debugPosition c content = do
   -- listStreamingRunSelect c $ select $ do
   pgTraceStmtIO' @(SqlSelect Postgres Integer)  c $ select $ do
     n <- all_ (_news newsDB)
-    return $ position_ @_ @_ @Integer (val_ content) (_newsContent n)
+    return $ position (val_ content) (_newsContent n)
+{- _a $ position_ @_ @_ @Integer (val_ content) (_newsContent n)
+instance IsCustomSqlSyntax (Sql92SelectTableExpressionSyntax
+                            (Sql92SelectSelectTableSyntax
+                               (Sql92SelectSyntax (BeamSqlBackendSyntax ctxt))))
+QBaseScope
+-}
+position :: QGenExpr QValueContext Postgres QBaseScope Content -> QGenExpr QValueContext Postgres QBaseScope Content -> QGenExpr QValueContext Postgres QBaseScope Integer
+position = {- as_ @Integer @QBaseScope $-} customExpr_ f
+  where
+    f :: (Monoid a, IsString a) => a -> a -> a
+    f c1 c2 = "position(" <> c1 <> " IN " <> c2 <> ")"
+
+positionQNested :: QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content 
+                -> QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content 
+                -> QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Integer
+positionQNested = {- as_ @Integer @QBaseScope $-} customExpr_ f
+  where
+    f :: (Monoid a, IsString a) => a -> a -> a
+    f c1 c2 = "position(" <> c1 <> " IN " <> c2 <> ")"
+
+--  position_ @_ @_ @Integer (val_ content) (_newsContent n)
 {- selectWith $ do
     n <- selecting (all_ (_news newsDB))
     i <- val_ $ position_ @_ @_ @Integer (val_ content) (_newsContent $ val_ $ reuse n)
@@ -128,6 +154,7 @@ sortNews (Just SBCountPhoto) = sortBy (\a b-> compare (V.length $ photoNews a) (
 sortNews Nothing = id
 
 -- filterSearch :: Search -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
+{-
 filterSearch :: (Columnar f NameNews
                        ~ QGenExpr QValueContext be s ForString,
                        HaskellLiteralForQExpr (Columnar f Day) ~ Day,
@@ -154,6 +181,7 @@ filterSearch :: (Columnar f NameNews
                                   (Sql92SelectSyntax (BeamSqlBackendSyntax be)))))
                          Integer) =>
                       Search -> NewsT f -> QGenExpr QValueContext be s Bool
+-}
 filterSearch (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' _ _ _) n =
   (filterDaySince mDaySince' n) &&.
   (filterDayAt mDayAt' n) &&.
@@ -167,7 +195,7 @@ filterSearch (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsNam'
   where
     f (Just fs) = filterForStringName fs n ||. filterForStringContent fs n
     f Nothing = val_ True
-
+{-
 filterForStringContent :: (Columnar f Content
                                  ~ QGenExpr QValueContext w1 s w2,
                                  HasSqlEqualityCheck w1 Integer,
@@ -189,8 +217,9 @@ filterForStringContent :: (Columnar f Content
                                                   w1)))))
                                    Integer) =>
                                 w2 -> NewsT f -> QGenExpr QValueContext w1 s Bool
-filterForStringContent fs n = (position_ @_ @_ @Integer (val_ fs) (_newsContent n)) /=. (val_ 0)
-
+-}
+filterForStringContent fs n = (positionQNested (val_ fs) (_newsContent n)) /=. (val_ 0)
+{-
 filterForStringName :: (Columnar f NameNews
                               ~ QGenExpr QValueContext w1 s w2,
                               HasSqlEqualityCheck w1 Integer,
@@ -210,9 +239,10 @@ filterForStringName :: (Columnar f NameNews
                                             (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
                                 Integer) =>
                              w2 -> NewsT f -> QGenExpr QValueContext w1 s Bool
-filterForStringName s n = (position_ @_ @_ @Integer (val_ s) (_newsNewsName n)) /=. (val_ 0)
+-}
+filterForStringName s n = (positionQNested (val_ s) (_newsNewsName n)) /=. (val_ 0)
 --filterForStringName Nothing _ = val_ True
-
+{-
 filterContent :: (Columnar f Content
                         ~ QGenExpr QValueContext w1 s w2,
                         HasSqlEqualityCheck w1 Integer,
@@ -232,10 +262,11 @@ filterContent :: (Columnar f Content
                                       (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
                           Integer) =>
                        Maybe w2 -> NewsT f -> QGenExpr QValueContext w1 s Bool
-filterContent (Just c) n = (position_ @_ @_ @Integer (val_ c) (_newsContent n)) /=. 
+-}
+filterContent (Just c) n = (positionQNested (val_ c) (_newsContent n)) /=. 
                            (val_ @(QGenExpr QValueContext _ _ Integer) 0)
 filterContent Nothing _ = val_ True
-
+{-
 filterContent' :: (Columnar f Content
                         ~ QGenExpr QValueContext w1 s w2,
                         HasSqlEqualityCheck w1 Integer,
@@ -255,8 +286,8 @@ filterContent' :: (Columnar f Content
                                       (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
                           Integer) =>
                        Maybe w2 -> NewsT f -> QGenExpr QValueContext w1 s SqlBool
-filterContent' (Just c) n = (position_ @_ @_ @Integer (val_ c) (_newsContent n)) /=?. 
-                           (val_ @(QGenExpr QValueContext _ _ Integer) 0)
+-}
+filterContent' (Just c) n = (positionQNested (val_ c) (_newsContent n)) /=?. (val_ 0)
 filterContent' Nothing _ = sqlBool_ $ val_ True
 
 -- filterFlagPublished :: Maybe FlagPublished -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool

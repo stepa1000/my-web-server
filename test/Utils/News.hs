@@ -4,7 +4,26 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module NewsSpec (spec) where
+module Utils.News 
+  ( addUser
+  , deleteUser
+  , withDatabase
+  , configNews
+  , configAuthorization
+  , testDBConnect
+  , delateNews
+  , handleCreateNewsTestN
+  , handleCreateNewsTest
+  , loginTest 
+  , nameTest
+  , passwordTest
+  , dateSearch
+  , publicSearch
+  , contentSearch
+  , idSearch
+  , newsCreateTest
+  , newsCreateN
+  ) where
 
 import Prelude as P
 
@@ -18,8 +37,8 @@ import Data.Text
 -- import qualified Data.ByteString as B
 import Data.Vector as V
 
-import Test.Hspec 
-  ({-Expectation,-} Spec, around, describe, it, shouldBe {-, shouldNotBe, shouldSatisfy-})
+--import Test.Hspec 
+--  ({-Expectation,-} Spec, around, describe, it, shouldBe {-, shouldNotBe, shouldSatisfy-})
 --import Test.QuickCheck (NonNegative (..), property, (==>))
 
 import Data.News
@@ -31,72 +50,6 @@ import Data.Imp.Server.News as ISN
 
 import qualified Control.Server.Authorization as SAuthorization
 import qualified Data.Imp.Server.Authorization as ImpSAuthorization
-
-spec :: Spec
-spec = 
-  around withDatabase $
-    describe "test for database news" $ do
-      it "create News" $ \(h,c) -> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest
-        l <- handleFind h emptySearch
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
-{-      it "debug simple search news" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest
-        l <- hSearchNewsName 3 c "nameNews"
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
--}
-      it "simple search news full" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest 
-        l <- handleFind h $ idSearch n -- emptySearch {mName = Just "nameNews" }
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
-      it "simple search news" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest 
-        l <- handleFind h $ emptySearch {mNewsName = Just "nameNews" }
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
-      it "simple search news date" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest 
-        l <- handleFind h $ dateSearch n
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
-      it "simple search news published" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest 
-        l <- handleFind h $ publicSearch n
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
-      it "simple search news content" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest 
-        l <- handleFind h $ contentSearch n
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
-      it "debug simple search news content" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest 
-        l <- hSearchContent 3 c (pack $ "textNews") -- handleFind h $ contentSearch n
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
-{-      it "debug position" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest 
-        b <- debugPosition c (pack $ "textNews") -- handleFind h $ contentSearch n
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        b `shouldBe` B.empty
--}
-      it "search news" $ \(h,c) -> do
-        _ <- handleCreateNewsTestN h 10
-        l <- handleFind h $ emptySearch {mNewsName = Just "nameNews5" } -- {mForString = Just "nameNews"}
-        delateNews c
-        (fmap textNews l) `shouldBe` ["textNews5"]
 
 addUser :: SAuthorization.Handle IO -> IO ()
 addUser h = do

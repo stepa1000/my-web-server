@@ -32,7 +32,6 @@ import qualified Data.Logger.Impl as ImpLogger
 
 import Data.Yaml as Y
 
-
 defaultServerSettings :: IO ()
 defaultServerSettings = do
   encodeFile "./config/server.yaml" $ Server.Config 
