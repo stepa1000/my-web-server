@@ -9,14 +9,14 @@ module NewsSpec (spec) where
 import Prelude as P
 
 import Database.Beam
-import Database.Beam.Postgres as Beam
+--import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
 
 --import Data.Time.Clock
 --import Data.Maybe
 import Data.Text
 -- import qualified Data.ByteString as B
-import Data.Vector as V
+--import Data.Vector as V
 
 import Test.Hspec 
   ({-Expectation,-} Spec, around, describe, it, shouldBe {-, shouldNotBe, shouldSatisfy-})
@@ -29,8 +29,10 @@ import Data.Types
 import Control.Server.News as SN
 import Data.Imp.Server.News as ISN
 
-import qualified Control.Server.Authorization as SAuthorization
-import qualified Data.Imp.Server.Authorization as ImpSAuthorization
+import Utils.News
+
+--import qualified Control.Server.Authorization as SAuthorization
+--import qualified Data.Imp.Server.Authorization as ImpSAuthorization
 
 spec :: Spec
 spec = 
@@ -97,7 +99,7 @@ spec =
         l <- handleFind h $ emptySearch {mNewsName = Just "nameNews5" } -- {mForString = Just "nameNews"}
         delateNews c
         (fmap textNews l) `shouldBe` ["textNews5"]
-
+{-
 addUser :: SAuthorization.Handle IO -> IO ()
 addUser h = do
   _ <- SAuthorization.hCreateUser h nameTest loginTest passwordTest True False
@@ -240,3 +242,4 @@ newsCreateN i = fmap f [0..i]
       , newPhotoNewsCreate = V.empty
       , publicNewsCreate = False
       }
+-}

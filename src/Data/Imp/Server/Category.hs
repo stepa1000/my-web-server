@@ -6,6 +6,7 @@
 
 module Data.Imp.Server.Category 
   ( withHandle
+  , initNewsCategory'
   ) where
 
 import Prelude as P
@@ -68,6 +69,10 @@ withHandle fp g = do
 
 hGetCategory :: IORef NewsCategory -> IO NewsCategory
 hGetCategory nc = readIORef nc
+
+initNewsCategory' :: String -> IO ()
+initNewsCategory' fp = do
+  encodeFile fp $ Node "General" []
 
 hChangeCategory :: IORef NewsCategory -> Category -> Maybe Category -> Maybe Category -> IO ()
 hChangeCategory rnc c (Just nrc) (Just nnc) = do

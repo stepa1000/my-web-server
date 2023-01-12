@@ -45,9 +45,12 @@ dependencies:
 - random
 - base64
 - warp
+- warp-tls
 - mtl
 - unix
 - yaml
+- http-client-tls
+- http-client
 
 ghc-options:
 # -XOverloadedStrings

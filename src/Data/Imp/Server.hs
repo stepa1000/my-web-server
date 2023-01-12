@@ -11,6 +11,7 @@ module Data.Imp.Server
 
 import Servant.API
 import Servant.Server as Servant
+-- import Network.HTTP.Client.TLS
 
 import Database.Beam
 import Database.Beam.Postgres as Beam
@@ -34,6 +35,7 @@ import qualified Data.Imp.Server.News as News
 import qualified Data.Logger.Impl as ImpLogger
 
 import Network.Wai.Handler.Warp as Warp
+import Network.Wai.Handler.WarpTLS as Warp
 import System.Posix.Signals
 
 import Control.Monad
@@ -67,10 +69,12 @@ server :: IO () -> Config -> IO ()
 server shutdown config = do
   withHandle config $ \ sh -> do
     let app = serveWithContext api (serverContext sh) (serverT sh)
+    -- Warp.runTLS defaultTlsSettings (setting shutdown) app
     Warp.runSettings (setting shutdown) app
     return ()
   where
-    setting a = setInstallShutdownHandler shutdownHandler defaultSettings
+    setting a = 
+      setInstallShutdownHandler shutdownHandler defaultSettings
       where
         shutdownHandler closeSocket =
           void $ installHandler sigTERM (Catch $ a >> closeSocket) Nothing

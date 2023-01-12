@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Control.Server 
   ( Handle(..)
   , handleServerFind
@@ -126,8 +128,9 @@ handleUserCreate h userpublic name login password fMakeNews fAdmin = do
       ServerAuthorization.hAdminCheckFail (handleAuthorization h)
       return Nothing
 
-handleUserList :: Handle m -> OffSet -> Limit -> m [UserPublic]
-handleUserList h offset limit =
+handleUserList :: Monad m => Handle m -> OffSet -> Limit -> m [UserPublic]
+handleUserList h offset limit = do
+  Logger.logInfo (handleLogger h) "call handleUserList"
   ServerAuthorization.hUserList (handleAuthorization h) offset limit
 
 handlePhotoGet :: Handle m -> Photo -> m (Maybe Base64)

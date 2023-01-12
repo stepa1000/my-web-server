@@ -7,10 +7,13 @@ import Test.Hspec
 
 import qualified NewsSpec
 import qualified AuthorizationSpec
+import qualified ServerSpec
 
 main :: IO ()
 main = hspec spec
 
 spec :: Spec
-spec = do
-  AuthorizationSpec.spec >>= (const NewsSpec.spec)
+spec =
+  AuthorizationSpec.spec >>= 
+  (const NewsSpec.spec) >>=
+  (const ServerSpec.spec)

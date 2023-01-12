@@ -63,6 +63,8 @@ library
     , cryptonite
     , exceptions
     , hspec
+    , http-client
+    , http-client-tls
     , memory
     , mtl
     , random
@@ -76,6 +78,7 @@ library
     , uuid
     , vector
     , warp
+    , warp-tls
     , yaml
   default-language: Haskell2010
 
@@ -101,6 +104,8 @@ executable my-web-server-exe
     , cryptonite
     , exceptions
     , hspec
+    , http-client
+    , http-client-tls
     , memory
     , mtl
     , my-web-server
@@ -115,6 +120,7 @@ executable my-web-server-exe
     , uuid
     , vector
     , warp
+    , warp-tls
     , yaml
   default-language: Haskell2010
 
@@ -145,6 +151,8 @@ test-suite my-web-server-test
     , cryptonite
     , exceptions
     , hspec
+    , http-client
+    , http-client-tls
     , memory
     , mtl
     , my-web-server
@@ -159,5 +167,6 @@ test-suite my-web-server-test
     , uuid
     , vector
     , warp
+    , warp-tls
     , yaml
   default-language: Haskell2010

@@ -2,6 +2,10 @@
 module Data.Config
   ( defaultServerSettings
   , getServerSettings
+  , testDefaultServerSettings
+  , getServerSettingsTest
+  , initNewsCategoryMain
+  , initNewsCategoryTest
   ) where
 
 --import Servant.API
@@ -24,7 +28,7 @@ import qualified Control.Logger as Logger
 --import API.Server.Web
 
 import qualified Data.Imp.Server.Authorization as Authorization
--- import qualified Data.Imp.Server.Category as Category
+import qualified Data.Imp.Server.Category as Category
 import qualified Data.Imp.Server.News as News
 import qualified Data.Imp.Server as Server
 
@@ -49,6 +53,38 @@ defaultServerSettings = do
         }
     }
 
+testDefaultServerSettings :: IO ()
+testDefaultServerSettings = do
+  encodeFile "./config/serverTest.yaml" $ Server.Config 
+    { Server.confNews = News.Config 
+        { News.confMaxLimit = 10
+        }
+    , Server.confFailPathToCategoryNews = "./data/categoryNewsTest.json"
+    , Server.confAuthorization = Authorization.Config
+        { Authorization.confLimit = 10
+        }
+    , Server.confConnectionInfo = testDBConnect 
+    , Server.confLogger = ImpLogger.PreConfig
+        { ImpLogger.preconfFilePath = "./logging/logTest"
+        , ImpLogger.preconfMinLevel = Logger.Error
+        }
+    }
+
+testDBConnect :: ConnectInfo
+testDBConnect = defaultConnectInfo {connectUser="stepan", connectDatabase = "testDB"}
+
+initNewsCategoryMain :: IO ()
+initNewsCategoryMain = do
+  Category.initNewsCategory' "./data/categoryNews.json"
+
+initNewsCategoryTest :: IO ()
+initNewsCategoryTest = do
+  Category.initNewsCategory' "./data/categoryNewsTest.json"
+
 getServerSettings :: IO Server.Config
 getServerSettings = do
   decodeFileThrow "./config/server.yaml"
+
+getServerSettingsTest :: IO Server.Config
+getServerSettingsTest = do
+  decodeFileThrow "./config/serverTest.yaml"
