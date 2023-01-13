@@ -35,7 +35,7 @@ withPreConf pc g = do
 
 withPreConf' :: PreConfig -> (Config -> IO a) -> IO a
 withPreConf' pc g = do
-  h <- SIO.openFile (preconfFilePath pc) SIO.ReadMode
+  h <- SIO.openFile (preconfFilePath pc) SIO.WriteMode
   a <- g $ Config
     { confFileHandle = h
     , confMinLevel = preconfMinLevel pc

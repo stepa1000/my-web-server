@@ -8,6 +8,7 @@ module Control.Server.Authorization
   , handleCheckAccountStrong
   , handleCheckAccount
   , handleCatchErrorAuthorization
+  , handleCreatInitAdmin
   ) where
 
 import Prelude as P
@@ -39,6 +40,13 @@ data ErrorAuthorization
   | ErrorAdminCheck
   | ErrorCreatorNewsCheck
   deriving (Typeable, Show, Eq, Exception)
+
+handleCreatInitAdmin :: Monad m => Handle m -> Login -> Password -> FlagMakeNews -> m (Maybe UserPublic)
+handleCreatInitAdmin h login p fmn = do
+  l <- hUserList h 0 0
+  case l of
+    [] -> Just <$> hCreateUser h login login p fmn True
+    _ -> return Nothing
 
 handleCatchErrorAuthorization :: Monad m => Handle m -> m a -> m (Either ErrorAuthorization a)
 handleCatchErrorAuthorization h ma = hCatchErrorAuthorization h (fmap Right ma) (return . Left)

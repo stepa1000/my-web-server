@@ -66,7 +66,7 @@ testDefaultServerSettings = do
     , Server.confConnectionInfo = testDBConnect 
     , Server.confLogger = ImpLogger.PreConfig
         { ImpLogger.preconfFilePath = "./logging/logTest"
-        , ImpLogger.preconfMinLevel = Logger.Error
+        , ImpLogger.preconfMinLevel = Logger.Debug
         }
     }
 

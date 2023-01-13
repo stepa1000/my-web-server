@@ -119,7 +119,7 @@ hUserList conn config offset limit' = do -- error "Not implement"
     orderBy_ (asc_ . _userLogin) $ all_ (_accounts accountDB) 
   return $ fmap userTToUserPublic lut
   where
-    limit = if limit' > (confLimit config) 
+    limit = if (limit' > (confLimit config)) || (limit' <= 0)
       then (confLimit config)
       else limit'
       
