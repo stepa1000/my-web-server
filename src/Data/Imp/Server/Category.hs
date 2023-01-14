@@ -123,6 +123,9 @@ cutTree' t a = (\(x,y)->(join x,y)) $ mapTree t a f
 renameNode :: Eq a => Tree a -> a -> a -> Tree a
 renameNode t a an = snd $ mapTree t a (\_ ft->((),an,ft))
 
+-- | take the tree and the name of the node
+-- and the function the changes the node,
+-- and returns the tree with the changed the node
 mapTree :: Eq a => Tree a -> a -> (a -> [Tree a] -> (b,a,[Tree a])) -> ([b],Tree a)
 mapTree t a f 
   | (rootLabel t) == a = (\(b,a2,sf)->([b],Node a2 sf) ) $ f a (subForest t)

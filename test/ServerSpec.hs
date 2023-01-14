@@ -25,14 +25,15 @@ import Data.Time.Clock
 -- import qualified Data.ByteString as B
 --import Data.Vector as V
 import Data.IORef
+import Data.Tree
 
 import Test.Hspec 
   ({-Expectation,-} Spec, around, describe, it, shouldBe {-, shouldNotBe, shouldSatisfy-})
 --import Test.QuickCheck (NonNegative (..), property, (==>))
 
---import Data.News
 import Data.User
---import Data.Types
+import Data.Types
+import Data.News
 
 import Control.Concurrent
 
@@ -46,7 +47,6 @@ import API.Server.Web
 import qualified Data.Config as Config
 import qualified Data.Imp.Server as IS
 
-import Data.Types
 
 import Utils.News
 
@@ -109,6 +109,64 @@ spec = around withServer $ -- undefined
              case e of
                (Right (ln,lns)) -> lns `shouldBe` ln
                (Left er) -> error $ show er
+           it "server search publik news" $ \ce-> do
+             e <- runClientM (do
+               getNewsPublicAny
+               ) ce 
+             e `shouldBe` (Right [])
+           it "server eddit news" $ \ce-> do
+             e <- runClientM (do
+               n <- createNewsEdit 
+                 basicAuthDataTest
+                 (Just "nameNews3")   
+                 Nothing
+                 Nothing
+                 Nothing
+                 (Just True)
+                 []
+                 []
+               l <- getNewsPublicAny
+               return (l,n)
+               ) ce
+             case e of
+               (Right (l,n)) -> l `shouldBe` [n]
+               (Left er) -> error $ show er
+           it "get tree" $ \ce-> do
+             e <- runClientM (do
+               categoryGetTree
+               ) ce
+             e `shouldBe` (Right (Node "General" []))
+           it "create category" $ \ce-> do
+             e <- runClientM (do
+               categoryCreate 
+                 basicAuthDataTest
+                 (Just "General")
+                 (Just "testCategory")
+               ) ce
+             e `shouldBe` (Right (Node "General" [(Node "testCategory" [])]))
+           it "change category" $ \ce-> do
+             e <- runClientM (do
+               categoryChange 
+                 basicAuthDataTest
+                 (Just "testCategory")
+                 Nothing
+                 (Just "testCategory2")
+               ) ce
+             e `shouldBe` (Right (Node "General" [(Node "testCategory2" [])]))
+
+getNewsPublicAny :: ClientM [News]
+getNewsPublicAny = getNewsPublic 
+  Nothing
+  Nothing
+  Nothing
+  Nothing
+  Nothing
+  Nothing
+  Nothing
+  Nothing   
+  Nothing
+  Nothing
+  Nothing
 
 basicAuthDataTestTemp :: BasicAuthData
 basicAuthDataTestTemp = (loginedToBasicAuthData $ Logined 

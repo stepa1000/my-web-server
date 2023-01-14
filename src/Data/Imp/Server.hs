@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DataKinds #-}
 {-# OPTIONS_GHC -Wwarn #-}
 -- -Wdefault
 
@@ -36,7 +37,7 @@ import qualified Data.Imp.Server.News as News
 import qualified Data.Logger.Impl as ImpLogger
 
 import Network.Wai.Handler.Warp as Warp
-import Network.Wai.Handler.WarpTLS as Warp
+-- import Network.Wai.Handler.WarpTLS as Warp
 import System.Posix.Signals
 
 import Control.Monad
@@ -71,7 +72,7 @@ server shutdown config = do
   withHandle config $ \ sh -> do
     let app = serveWithContext api (serverContext sh) (serverT sh)
     -- Warp.runTLS defaultTlsSettings (setting shutdown) app
-    ServerAuthorization.handleCreatInitAdmin (Server.handleAuthorization sh) "tempAdmin" "temp" False
+    _ <- ServerAuthorization.handleCreatInitAdmin (Server.handleAuthorization sh) "tempAdmin" "temp" False
     Warp.runSettings (setting shutdown) app
     return ()
 --  where
@@ -85,43 +86,85 @@ serverTest shutdown config g = do
     Logger.logDebug (Server.handleLogger sh) $ "create temp admin: " .< mu
     g (Warp.runSettings (setting shutdown) app, c)
     return ()
-
+    
+setting :: IO a -> Settings
 setting a = 
   setInstallShutdownHandler shutdownHandler defaultSettings
   where
     shutdownHandler closeSocket =
       void $ installHandler sigTERM (Catch $ a >> closeSocket) Nothing
 
+serverContext :: Server.Handle IO
+       	      -> Context '[BasicAuthCheck UserPublic]
 serverContext sh = authcheck sh :. EmptyContext
 
 serverT sh = getNewsPublicS sh :<|> getNewsPrivateS sh :<|> categoryCreateS sh :<|> categoryGetS sh  :<|> categoryChangeS sh :<|> createNewsNewS sh :<|> 
   createNewsEdditS sh :<|> userCreateS sh :<|> userListS sh :<|> photoGetS sh
 
+getNewsPublicS :: MonadIO m 
+               => Server.Handle IO
+               -> Maybe DayAt
+               -> Maybe DayUntil
+               -> Maybe DaySince
+               -> Maybe Name
+               -> Maybe Category
+               -> Maybe NewsName
+               -> Maybe Content
+               -> Maybe ForString
+               -> Maybe SortBy
+               -> Maybe OffSet
+               -> Maybe Limit
+               -> m [News]
 getNewsPublicS sh mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mSortBy' mOffSet' mLimit'
   = liftIO $ Server.handleServerFind sh Nothing 
       (Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' Nothing mSortBy' mOffSet' mLimit')
 
+getNewsPrivateS :: Server.Handle IO
+                -> UserPublic
+                -> Maybe DayAt
+                -> Maybe DayUntil
+                -> Maybe DaySince
+                -> Maybe Name
+                -> Maybe Category
+                -> Maybe NewsName
+                -> Maybe Content
+                -> Maybe ForString
+                -> Maybe FlagPublished
+                -> Maybe SortBy
+                -> Maybe OffSet
+                -> Maybe Limit
+                -> Servant.Handler [News]
 getNewsPrivateS sh bad mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit'
   = handleErrorAuthorization sh $ Server.handleServerFind sh (Just bad) 
     (Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit' )
 
+categoryCreateS :: MonadIO m  
+                => Server.Handle IO
+                -> UserPublic 
+                -> Maybe Category 
+                -> Maybe Category 
+                -> m NewsCategory
 categoryCreateS sh bad (Just rc) (Just nc) = liftIO $ Server.handleCategoryCreate sh bad rc nc
-
 categoryCreateS sh _ _ _ = do
   liftIO $ Logger.logError (Server.handleLogger sh) "categoryCreate: parametrs not Just"
   liftIO $ Server.handleCategoryGet sh
 
+categoryGetS :: MonadIO m => Server.Handle IO -> m NewsCategory
 categoryGetS sh = liftIO $ Server.handleCategoryGet sh
 
+categoryChangeS :: Server.Handle IO
+                -> UserPublic
+                -> Maybe Category
+                -> Maybe Category
+                -> Maybe Category
+                -> Servant.Handler NewsCategory
 categoryChangeS sh bad (Just cn) mrc mrnn 
   = handleErrorAuthorization sh $ Server.handleCategoryChange sh bad cn mrc mrnn
-
 categoryChangeS sh _ _ _ _ = do
   liftIO $ Logger.logError (Server.handleLogger sh) "categoryChange: parametrs not Just"
   liftIO $ Server.handleCategoryGet sh
 
 createNewsNewS :: Server.Handle IO -> UserPublic -> NewsCreate -> Servant.Handler News
-
 createNewsNewS sh bad nn = do
   mn <- handleErrorAuthorization sh $ Server.handleCreateNewsNew sh bad nn
   case mn of
@@ -157,7 +200,6 @@ createNewsEdditS sh bad (Just nn) c nnn ca pu ph nph = do
         , errBody = fromStrict $ B.empty
         , errHeaders = []
         }
-
 createNewsEdditS sh _ _ _ _ _ _ _ _ = do
   liftIO $ Logger.logError (Server.handleLogger sh) $ "createNewsEddit: parametors not just"
   throwError $ ServerError
@@ -187,7 +229,6 @@ userCreateS sh bad (Just n) (Just l) (Just p) (Just fm) (Just fa) = do
         , errBody = fromStrict $ B.empty
         , errHeaders = []
         }
-
 userCreateS sh _ _ _ _ _ _ = do
   liftIO $ Logger.logError (Server.handleLogger sh) $ "userCreate: parametors not just"
   throwError $ ServerError
@@ -197,6 +238,8 @@ userCreateS sh _ _ _ _ _ _ = do
      , errHeaders = []
     }
 
+userListS :: MonadIO m 
+          => Server.Handle IO -> Maybe OffSet -> Maybe Limit -> m [UserPublic]
 userListS sh mo ml = liftIO $ Server.handleUserList sh (maybe 0 id mo) (maybe 0 id ml)
 
 photoGetS :: Server.Handle IO -> Maybe Photo -> Servant.Handler Base64
