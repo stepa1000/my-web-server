@@ -13,14 +13,9 @@ module Control.Server.Authorization
 
 import Prelude as P
 
--- import Control.Applicative
 import Control.Monad.Catch
-
--- import Data.Text
--- import Data.Time.Calendar.OrdinalDate
 import Data.Typeable
 
--- import Data.News
 import Data.User
 import Data.Types
 
@@ -60,6 +55,7 @@ handleWithAccount h l f = do
       hAuthorizationFail h
       return Nothing
 
+-- | exist with an exception if you are not logged in
 handleCheckAccountStrong :: Monad m => Handle m -> Logined -> m (Maybe UserPublic)
 handleCheckAccountStrong h l = do
   mu <- handleCheckAccount h l

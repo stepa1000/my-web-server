@@ -7,10 +7,8 @@ module Control.Server.News
 
 import Prelude as P
 
--- import Control.Applicative
+import Control.Monad
 
--- import Data.Text
--- import Data.ByteString
 import Data.Vector as V
 import Data.Time.Calendar.OrdinalDate
 
@@ -22,15 +20,17 @@ import Data.Types
 data Handle m = Handle
   { handlePhoto :: Photo.Handle m
   , hSearchNews :: Search -> m [News]
-  , hPutNews :: News -> m () -- Bool
+  -- | create new news
+  , hPutNews :: News -> m ()
   , hGetNews :: NewsName -> m (Maybe News)
-  , hModifNews :: NewsName -> (News -> News) -> m () -- Bool 
+  , hModifNews :: NewsName -> (News -> News) -> m () 
   , hGetDay :: m Day
   }
 
+-- | changes the value of the field to the specified
 handleEditNews :: Monad m 
                => Handle m
-               -- -> Name 
+               -> Login
                -> NameNews -- old   
                -> Maybe Content
                -> Maybe NameNews -- new
@@ -39,9 +39,9 @@ handleEditNews :: Monad m
                -> Vector Photo
                -> Vector Base64 -- ByteString
                -> m (Maybe News)
-handleEditNews h {-_ author-} nameN content newNameNews category flagP vP vB64 = do
+handleEditNews h login nameN content newNameNews category flagP vP vB64 = do
   vnpic <- P.mapM (Photo.hPutPhoto (handlePhoto h) ) vB64
-  mn <- hGetNews h nameN
+  mn <- (\m-> m >>= f ) <$> hGetNews h nameN
   case mn of
     (Just n) -> do
       let n2 = (editNews n) {photoNews = vP V.++ vnpic}
@@ -49,11 +49,11 @@ handleEditNews h {-_ author-} nameN content newNameNews category flagP vP vB64 =
       return $ Just n2
     _ -> return Nothing
   where
+    f n = guard ((loginAuthor n) == login) >> return n
     editNews = editNewsContent content . 
       editNewsNameNews newNameNews . 
       editNewsCategory category . 
       editFlagPublished flagP
---    newContent = maybe
 
 editNewsContent :: Maybe Content -> News -> News
 editNewsContent (Just c) n = n {categoryNews = c}
@@ -71,8 +71,8 @@ editFlagPublished :: Maybe FlagPublished -> News -> News
 editFlagPublished (Just f) n = n {publicNews = f}
 editFlagPublished Nothing n = n
 
-handleCreateNews :: Monad m => Handle m {- > Vector ByteString -} -> Login -> Name -> NewsCreate -> m News
-handleCreateNews h {- vbs -} l name nc = do
+handleCreateNews :: Monad m => Handle m -> Login -> Name -> NewsCreate -> m News
+handleCreateNews h l name nc = do
   let vbs = newPhotoNewsCreate nc
   vnpic <- P.mapM (Photo.hPutPhoto (handlePhoto h) ) vbs
   d <- hGetDay h
@@ -91,11 +91,9 @@ handleCreateNews h {- vbs -} l name nc = do
       , publicNews = publicNewsCreate nc
       }
 
--- handleGetNewsDay :: Handle
 handleFind :: Handle m
            -> Search
            -> m [News]
 handleFind h search = 
---    (Search mDayAt mDayUntil mDaySince mAothor mCategory mNewsNam mContent mForString mFlagPublished mSortBy mOffSet mLimit) = do -- error "Not implement"
   hSearchNews h search
 

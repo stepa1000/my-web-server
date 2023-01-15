@@ -26,43 +26,24 @@ import Database.Beam as Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
 import Database.Beam.Query.Internal
---import Conduit
 
--- import Database.Beam.Backend.SQL -- .BeamSqlBackendSynte
--- import Database.Beam.Backend.SQL.SQL92
-
---import System.Random
---import Control.Applicative
---import Control.Monad.Catch
---import Control.Monad
-
---import Data.Text
 import Data.ByteString
---import Data.Binary
---import Data.ByteArray
 
 import Data.Time.Calendar.OrdinalDate
 import Data.Time.Clock
---import Crypto.Hash
---import Crypto.Hash.IO
 
 import Data.Maybe as Maybe
---import Data.Typeable
---import Data.UUID
 import Data.Vector as V
 
 import Data.Aeson as A
 import Data.Yaml as Y
 import Data.List (sortBy)
 import Data.String
--- import Debug.Trace
 
 import Data.News
--- import Data.User
 import Data.Types
 import Data.Utils
 
--- import qualified Control.Server.Photo as SPhoto
 import qualified Data.Imp.Server.Photo as ImpSPhoto
 import qualified Control.Server.News as SNews
 
@@ -86,20 +67,7 @@ hSearchNews maxLimit c s = do
   return $ sortNews (mSortBy s) $ Maybe.catMaybes lm
   where 
     searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_ (filterSearch s) (all_ (_news newsDB)) 
-    -- searchNews Nothing (Just o) = offset_ o $ filter_ (filterSearch s) (all_ $ (_news newsDB))orderBy_ (funOrder $ mSortBy s)
-    -- searchNews (Just l) Nothing = limit_ l $ filter_ (filterSearch s) (all_ $ (_news newsDB)) -- -}
     searchNews _ _ = limit_ (maxLimit) $ offset_ 0 $ filter_ (filterSearch s) (all_ (_news newsDB))
-{-
-hSearchNewsName :: Integer -> Connection -> NameNews -> IO [News]
-hSearchNewsName maxLimit c n =  do
-  lm <- (fmap . fmap) newsTToNews $ listStreamingRunSelect c $ select $ searchNews Nothing Nothing
-  return $ Maybe.catMaybes lm
-  where 
-    searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_ (filterNewsName (Just n)) (all_ (_news newsDB)) 
-    -- searchNews Nothing (Just o) = offset_ o $ filter_ (filterSearch s) (all_ $ (_news newsDB))orderBy_ (funOrder $ mSortBy s)
-    -- searchNews (Just l) Nothing = limit_ l $ filter_ (filterSearch s) (all_ $ (_news newsDB)) -- 
-    searchNews _ _ = limit_ (maxLimit) $ offset_ 0 $ filter_ (filterNewsName (Just n)) (all_ (_news newsDB))
--}
 
 hSearchContent :: Integer -> Connection -> Content -> IO [News]
 hSearchContent maxLimit c content =  do
@@ -107,24 +75,16 @@ hSearchContent maxLimit c content =  do
   return $ Maybe.catMaybes lm
   where 
     searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_' (filterContent' (Just content)) (all_ (_news newsDB)) 
-    -- searchNews Nothing (Just o) = offset_ o $ filter_ (filterSearch s) (all_ $ (_news newsDB))orderBy_ (funOrder $ mSortBy s)
-    -- searchNews (Just l) Nothing = limit_ l $ filter_ (filterSearch s) (all_ $ (_news newsDB)) -- 
     searchNews _ _ = limit_ (maxLimit) $ offset_ 0 $ filter_' (filterContent' (Just content)) (all_ (_news newsDB))
 
-debugPosition :: Connection -> Content -> IO ByteString -- IO [Integer]
+debugPosition :: Connection -> Content -> IO ByteString 
 debugPosition c content = do
-  -- listStreamingRunSelect c $ select $ do
   pgTraceStmtIO' @(SqlSelect Postgres Integer)  c $ select $ do
     n <- all_ (_news newsDB)
     return $ position (val_ content) (_newsContent n)
-{- _a $ position_ @_ @_ @Integer (val_ content) (_newsContent n)
-instance IsCustomSqlSyntax (Sql92SelectTableExpressionSyntax
-                            (Sql92SelectSelectTableSyntax
-                               (Sql92SelectSyntax (BeamSqlBackendSyntax ctxt))))
-QBaseScope
--}
+
 position :: QGenExpr QValueContext Postgres QBaseScope Content -> QGenExpr QValueContext Postgres QBaseScope Content -> QGenExpr QValueContext Postgres QBaseScope Integer
-position = {- as_ @Integer @QBaseScope $-} customExpr_ f
+position = customExpr_ f
   where
     f :: (Monoid a, IsString a) => a -> a -> a
     f c1 c2 = "position(" <> c1 <> " IN " <> c2 <> ")"
@@ -132,20 +92,11 @@ position = {- as_ @Integer @QBaseScope $-} customExpr_ f
 positionQNested :: QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content 
                 -> QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content 
                 -> QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Integer
-positionQNested = {- as_ @Integer @QBaseScope $-} customExpr_ f
+positionQNested = customExpr_ f
   where
     f :: (Monoid a, IsString a) => a -> a -> a
     f c1 c2 = "position(" <> c1 <> " IN " <> c2 <> ")"
 
---  position_ @_ @_ @Integer (val_ content) (_newsContent n)
-{- selectWith $ do
-    n <- selecting (all_ (_news newsDB))
-    i <- val_ $ position_ @_ @_ @Integer (val_ content) (_newsContent $ val_ $ reuse n)
-    return i
--}
-{- select $ 
-    (position_ @_ @_ @Integer (val_ content) (_newsContent (all_ (_news newsDB))))
--}
 sortNews :: Maybe SortBy -> [News] -> [News]
 sortNews (Just SBDate) = sortBy (\a b-> compare (dateCreationNews a) (dateCreationNews b) )
 sortNews (Just SBAuthor) = sortBy (\a b-> compare (nameAuthor a) (nameAuthor b))
@@ -153,35 +104,6 @@ sortNews (Just SBCategory) = sortBy (\a b-> compare (categoryNews a) (categoryNe
 sortNews (Just SBCountPhoto) = sortBy (\a b-> compare (V.length $ photoNews a) (V.length $ photoNews b))
 sortNews Nothing = id
 
--- filterSearch :: Search -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
-{-
-filterSearch :: (Columnar f NameNews
-                       ~ QGenExpr QValueContext be s ForString,
-                       HaskellLiteralForQExpr (Columnar f Day) ~ Day,
-                       -- HaskellLiteralForQExpr (Columnar f Name) ~ Text,
-                       HaskellLiteralForQExpr (Columnar f FlagPublished) ~ Bool,
-                       BeamSqlBackendIsString be ForString,
-                       SqlOrd (QGenExpr QValueContext be s) (Columnar f Day),
-                       HasSqlEqualityCheck be Integer,
-                       SqlEq (QGenExpr QValueContext be s) (Columnar f Day),
-                       SqlEq (QGenExpr QValueContext be s) (Columnar f NameNews),
-                       SqlEq (QGenExpr QValueContext be s) (Columnar f FlagPublished),
-                       SqlValable (Columnar f Day), SqlValable (Columnar f NameNews),
-                       SqlValable (Columnar f FlagPublished),
-                       HasSqlValueSyntax
-                         (Sql92ExpressionValueSyntax
-                            (Sql92SelectTableExpressionSyntax
-                               (Sql92SelectSelectTableSyntax
-                                  (Sql92SelectSyntax (BeamSqlBackendSyntax be)))))
-                         ForString,
-                       HasSqlValueSyntax
-                         (Sql92ExpressionValueSyntax
-                            (Sql92SelectTableExpressionSyntax
-                               (Sql92SelectSelectTableSyntax
-                                  (Sql92SelectSyntax (BeamSqlBackendSyntax be)))))
-                         Integer) =>
-                      Search -> NewsT f -> QGenExpr QValueContext be s Bool
--}
 filterSearch (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' _ _ _) n =
   (filterDaySince mDaySince' n) &&.
   (filterDayAt mDayAt' n) &&.
@@ -191,102 +113,24 @@ filterSearch (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsNam'
   (filterNewsName mNewsNam' n) &&.
   (filterFlagPublished mFlagPublished' n) &&.
   (filterContent mContent' n) &&.
-  (f mForString') -- (filterForStringName mForString n) (filterForStringContent mForString n ))
+  (f mForString') 
   where
-    f (Just fs) = filterForStringName fs n ||. filterForStringContent fs n
+    f (Just fs) = 
+      filterForStringName fs n ||. 
+      filterForStringContent fs n ||. 
+      filerForStringAuthor fs n ||. 
+      filterForStringCategory fs n
     f Nothing = val_ True
-{-
-filterForStringContent :: (Columnar f Content
-                                 ~ QGenExpr QValueContext w1 s w2,
-                                 HasSqlEqualityCheck w1 Integer,
-                                 Database.Beam.Backend.SQL.BeamSqlBackendIsString w1 w2,
-                                 Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
-                                   (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
-                                      (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
-                                         (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
-                                            (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
-                                               (Database.Beam.Backend.SQL.BeamSqlBackendSyntax
-                                                  w1)))))
-                                   w2,
-                                 Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
-                                   (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
-                                      (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
-                                         (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
-                                            (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
-                                               (Database.Beam.Backend.SQL.BeamSqlBackendSyntax
-                                                  w1)))))
-                                   Integer) =>
-                                w2 -> NewsT f -> QGenExpr QValueContext w1 s Bool
--}
+
 filterForStringContent fs n = (positionQNested (val_ fs) (_newsContent n)) /=. (val_ 0)
-{-
-filterForStringName :: (Columnar f NameNews
-                              ~ QGenExpr QValueContext w1 s w2,
-                              HasSqlEqualityCheck w1 Integer,
-                              Database.Beam.Backend.SQL.BeamSqlBackendIsString w1 w2,
-                              Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
-                                (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
-                                   (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
-                                      (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
-                                         (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
-                                            (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
-                                w2,
-                              Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
-                                (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
-                                   (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
-                                      (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
-                                         (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
-                                            (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
-                                Integer) =>
-                             w2 -> NewsT f -> QGenExpr QValueContext w1 s Bool
--}
 filterForStringName s n = (positionQNested (val_ s) (_newsNewsName n)) /=. (val_ 0)
---filterForStringName Nothing _ = val_ True
-{-
-filterContent :: (Columnar f Content
-                        ~ QGenExpr QValueContext w1 s w2,
-                        HasSqlEqualityCheck w1 Integer,
-                        Database.Beam.Backend.SQL.BeamSqlBackendIsString w1 w2,
-                        Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
-                          (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
-                             (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
-                                (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
-                                   (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
-                                      (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
-                          w2,
-                        Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
-                          (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
-                             (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
-                                (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
-                                   (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
-                                      (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
-                          Integer) =>
-                       Maybe w2 -> NewsT f -> QGenExpr QValueContext w1 s Bool
--}
+filerForStringAuthor s n = (positionQNested (val_ s) (_newsNameAuthor n)) /=. (val_ 0)
+filterForStringCategory s n = (positionQNested (val_ s) (_newsCategory n)) /=. (val_ 0)
+
 filterContent (Just c) n = (positionQNested (val_ c) (_newsContent n)) /=. 
                            (val_ @(QGenExpr QValueContext _ _ Integer) 0)
 filterContent Nothing _ = val_ True
-{-
-filterContent' :: (Columnar f Content
-                        ~ QGenExpr QValueContext w1 s w2,
-                        HasSqlEqualityCheck w1 Integer,
-                        Database.Beam.Backend.SQL.BeamSqlBackendIsString w1 w2,
-                        Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
-                          (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
-                             (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
-                                (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
-                                   (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
-                                      (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
-                          w2,
-                        Database.Beam.Backend.SQL.SQL92.HasSqlValueSyntax
-                          (Database.Beam.Backend.SQL.SQL92.Sql92ExpressionValueSyntax
-                             (Database.Beam.Backend.SQL.SQL92.Sql92SelectTableExpressionSyntax
-                                (Database.Beam.Backend.SQL.SQL92.Sql92SelectSelectTableSyntax
-                                   (Database.Beam.Backend.SQL.SQL92.Sql92SelectSyntax
-                                      (Database.Beam.Backend.SQL.BeamSqlBackendSyntax w1)))))
-                          Integer) =>
-                       Maybe w2 -> NewsT f -> QGenExpr QValueContext w1 s SqlBool
--}
+
 filterContent' (Just c) n = (positionQNested (val_ c) (_newsContent n)) /=?. (val_ 0)
 filterContent' Nothing _ = sqlBool_ $ val_ True
 

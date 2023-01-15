@@ -15,7 +15,6 @@ import GHC.Generics
 import Database.Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
--- import Conduit
 
 import System.Random
 import Control.Monad
@@ -72,28 +71,4 @@ data PhotoDB f = PhotoDB
 
 photoDB :: DatabaseSettings be PhotoDB
 photoDB = defaultDbSettings
-{-
-data UserT f = UserT
-  { _userName :: Columnar f Name
-  , _userLogin :: Columnar f Login
-  , _userPasswordHash :: Columnar f ByteString
-  , _userDateCreation :: Columnar f Day
-  , _userAdmin :: Columnar f FlagAdmin
-  , _userMakeNews :: Columnar f FlagMakeNews
-  } deriving (Generic, Beamable)
 
-type UserTId = UserT Identity
-type UserId = PrimaryKey UserT Identity
-
-instance Table UserT where
-  data PrimaryKey UserT f = UserId (Columnar f Login) 
-    deriving (Generic, Beamable)
-  primaryKey = UserId . _userLogin
-
-data AccountDB f = AccountDB
-  { _accounts :: f (TableEntity UserT) } 
-  deriving (Generic, Database be)
-
-accountDB :: DatabaseSettings be AccountDB
-accountDB = defaultDbSettings 
--}

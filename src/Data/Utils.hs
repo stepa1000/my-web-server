@@ -10,8 +10,6 @@ module Data.Utils
 
 import Prelude as P
 
--- import GHC.Generics
-
 import Database.Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC

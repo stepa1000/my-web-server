@@ -11,43 +11,16 @@ module Data.Imp.Server.Category
 
 import Prelude as P
 
--- import GHC.Generics
-{-
-import Database.Beam as Beam
-import Database.Beam.Postgres as Beam
-import Database.Beam.Postgres.Conduit as BPC
-import Conduit
--}
---import System.Random
---import Control.Applicative
---import Control.Monad.Catch
 import Control.Monad
 
---import Data.Text
---import Data.ByteString
---import Data.Binary
---import Data.ByteArray
-
---import Data.Time.Calendar.OrdinalDate
---import Data.Time.Clock
---import Crypto.Hash
---import Crypto.Hash.IO
-
 import Data.Maybe as Maybe
---import System.IO
--- import Data.Typeable
--- import Data.UUID
--- import Data.Vector as V
 
 import Data.Aeson as A
 import Data.List as List (unzip)
 import Data.IORef
 import Data.Tree as Tree
 
---import Data.News
---import Data.User
 import Data.Types
---import Data.Utils
 
 import qualified Control.Server.Category as Category
 
@@ -74,6 +47,7 @@ initNewsCategory' :: String -> IO ()
 initNewsCategory' fp = do
   encodeFile fp $ Node "General" []
 
+-- | changing category name and ancestor
 hChangeCategory :: IORef NewsCategory -> Category -> Maybe Category -> Maybe Category -> IO ()
 hChangeCategory rnc c (Just nrc) (Just nnc) = do
   modifyIORef rnc (\nc -> cutAddTree nc nrc c nnc)
@@ -83,27 +57,23 @@ hChangeCategory rnc c Nothing (Just nnc) = do
   modifyIORef rnc (\nc -> renameNode nc c nnc)
 hChangeCategory _ _ Nothing Nothing = return () -- loging the
 
+-- | adds categories under category
 hCreateCategory :: IORef NewsCategory -> Category -> Category -> IO ()
 hCreateCategory rnc cr cn = do
   modifyIORef rnc (\t-> addTree t cr [Node cn []])
-{-
-catMaybesTree :: a -> Tree (Maybe a) -> Tree a
-catMaybesTree t 
-  | isJust (rootLable t) = Node (fromJust (rootLable t)) (fmap catMaybesTree (subForest t))
-  | not $ P.null (fmap catMaybesTree (subForest t)) = 
-    Node (head (fmap catMaybesTree (subForest t))) (tail (fmap catMaybesTree (subForest t)))
-  | True = Node a _
--}
+
 cutAddTree :: Eq a => Tree a -> a -> a -> a -> Tree a
 cutAddTree t e n n2 = f $ cutTree t n
   where
     f (sf,mt) = maybe (Node n sf) id (fmap (\tn-> addTree tn e [Node n2 sf] ) mt)
 
+-- | adds subtrees
 addTree :: Eq a => Tree a -> a -> [Tree a] -> Tree a
 addTree t r lsf = snd $ mapTree t r f
   where
     f a sf = ((),a,lsf ++ sf)
 
+-- | returns the subtrees and the remaining tree
 cutTree :: Eq a => Tree a -> a -> ([Tree a],Maybe (Tree a) )
 cutTree t a = (\(x,y)-> (catMaybes $ fmap catMaybesTree x, catMaybesTree y) ) $ 
   cutTree' (fmap Just t) (Just a)

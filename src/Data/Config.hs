@@ -8,24 +8,9 @@ module Data.Config
   , initNewsCategoryTest
   ) where
 
---import Servant.API
---import Servant.Server as Servant
-
---import Database.Beam
 import Database.Beam.Postgres as Beam
---import Database.Beam.Postgres.Conduit as BPC
---import Conduit
 
---import qualified Control.Server.News as ServerNews
---import qualified Control.Server.Category as ServerCategory
---import qualified Control.Server.Authorization as ServerAuthorization
-
---import Control.Logger ((.<))
 import qualified Control.Logger as Logger
-
---import qualified Control.Server.Photo as ServerPhoto
---import qualified Control.Server as Server
---import API.Server.Web
 
 import qualified Data.Imp.Server.Authorization as Authorization
 import qualified Data.Imp.Server.Category as Category
@@ -46,7 +31,7 @@ defaultServerSettings = do
     , Server.confAuthorization = Authorization.Config
         { Authorization.confLimit = 10
         }
-    , Server.confConnectionInfo = defaultConnectInfo 
+    , Server.confConnectionInfo = mainDBConnect 
     , Server.confLogger = ImpLogger.PreConfig
         { ImpLogger.preconfFilePath = "./logging/log"
         , ImpLogger.preconfMinLevel = Logger.Error
@@ -69,6 +54,9 @@ testDefaultServerSettings = do
         , ImpLogger.preconfMinLevel = Logger.Debug
         }
     }
+
+mainDBConnect :: ConnectInfo
+mainDBConnect = defaultConnectInfo {connectUser="stepan", connectDatabase = "newsdb"}
 
 testDBConnect :: ConnectInfo
 testDBConnect = defaultConnectInfo {connectUser="stepan", connectDatabase = "testDB"}

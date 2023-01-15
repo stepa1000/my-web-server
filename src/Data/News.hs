@@ -8,10 +8,7 @@ module Data.News
 
 import GHC.Generics
 
--- import Data.Text
 import Data.Vector as V
--- import Data.Tree as T
--- import qualified Data.ByteString as B
 
 import Data.Time.Calendar.OrdinalDate  -- .Clock
 import Data.Aeson
@@ -32,10 +29,10 @@ data News = News
   } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 data NewsCreate = NewsCreate 
-  { nameNewsCreate :: NameNews -- UTCTime
+  { nameNewsCreate :: NameNews
   , categoryNewsCreate :: Category
   , textNewsCreate :: Content
   , photoNewsCreate :: Vector Photo
-  , newPhotoNewsCreate :: Vector Base64 -- B.ByteStrings
+  , newPhotoNewsCreate :: Vector Base64 
   , publicNewsCreate :: FlagPublished
   } deriving (Generic, ToJSON, FromJSON)

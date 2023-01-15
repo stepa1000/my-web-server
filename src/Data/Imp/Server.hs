@@ -43,7 +43,6 @@ import System.Posix.Signals
 import Control.Monad
 import Control.Monad.Error.Class
 
--- import Data.Maybe
 import Data.Vector as V
 import Data.ByteString as B
 import Data.Yaml

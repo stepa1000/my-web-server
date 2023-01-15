@@ -111,8 +111,8 @@ handleServerEditNews :: Monad m
                      -> m (Maybe News)
 handleServerEditNews h userpublic nameN mContent' mNameNews mCategory' mFlagP vPh vB64 = do
   case userpublic of
-    (UserPublic _ _ _ _ True) -> do
-      ServerNews.handleEditNews (handleNews h) {-name-} nameN mContent' mNameNews mCategory' mFlagP vPh vB64
+    (UserPublic _ lu _ _ True) -> do
+      ServerNews.handleEditNews (handleNews h) lu nameN mContent' mNameNews mCategory' mFlagP vPh vB64
     _ -> do
       ServerAuthorization.hCreatorNewsCheckFail (handleAuthorization h) 
       return Nothing
@@ -137,23 +137,3 @@ handlePhotoGet :: Handle m -> Photo -> m (Maybe Base64)
 handlePhotoGet h p =
   ServerPhoto.hGetPhoto (ServerNews.handlePhoto $ handleNews h) p
 
-{-
-data Event 
-  = QueryNews
-      (Maybe Logined)
-      (Maybe DayAt)
-      (Maybe DayUntil)
-      (Maybe DaySince)
-      (Maybe Name)
-      (Maybe Category)
-      (Maybe NewsName)
-      (Maybe Content)
-      (Maybe ForString)
-      (Maybe FlagPublished)
-      (Maybe SortBy)    
-      (Maybe OffSet)
-      (Maybe Limit)
-  | CategotyCreat (Maybe Category) Category
-  | CategoryGetTree
-  | CategoryChange Logined Category (Maybe Category) (Maybe Category)
--}

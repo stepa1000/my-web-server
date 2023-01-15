@@ -9,21 +9,16 @@ module Data.User
 
 import GHC.Generics
 
--- import Database.Beam
--- import Database.Beam.Postgres
-
-import Data.Text
+--import Data.Text
 import qualified Data.ByteString as B
 import Data.Time.Calendar.OrdinalDate -- Clock
 import Data.Aeson
 
--- import Data.Functor.Identity
-
 import Data.Types
 
 data UserPublic = UserPublic
-  { nameUser :: Text
-  , loginUser :: Text
+  { nameUser :: Name
+  , loginUser :: Login
   -- , passwordHashUser :: B.ByteString
   , dateCreationUser :: Day -- UTCTime
   , adminUser :: FlagAdmin
