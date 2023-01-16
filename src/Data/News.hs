@@ -1,9 +1,11 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Data.News 
   ( News(..)
   , NewsCreate(..)
+  , exempleNewsCreate
   ) where
 
 import GHC.Generics
@@ -36,3 +38,13 @@ data NewsCreate = NewsCreate
   , newPhotoNewsCreate :: Vector Base64 
   , publicNewsCreate :: FlagPublished
   } deriving (Generic, ToJSON, FromJSON)
+
+exempleNewsCreate :: NewsCreate
+exempleNewsCreate = NewsCreate 
+  { nameNewsCreate = "exepleName"
+  , categoryNewsCreate = "exempleCategory"
+  , textNewsCreate = "exempleText"
+  , photoNewsCreate = V.empty
+  , newPhotoNewsCreate = V.empty
+  , publicNewsCreate = False
+  }

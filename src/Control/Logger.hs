@@ -40,7 +40,7 @@ textToLogLvl t
   | t == "Warning" = Warning
   | t == "Info" = Info
   | t == "Debug" = Debug
-  | True = Error 
+  | otherwise = Error 
 
 logDebug, logInfo, logWarning, logError :: Handle m -> T.Text -> m ()
 logDebug h = hLowLevelLog h Debug

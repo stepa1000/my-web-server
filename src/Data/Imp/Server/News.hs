@@ -47,7 +47,7 @@ import Data.Utils
 import qualified Data.Imp.Server.Photo as ImpSPhoto
 import qualified Control.Server.News as SNews
 
-data Config = Config
+newtype Config = Config
   {confMaxLimit :: Integer} 
   deriving (Generic, Y.ToJSON, Y.FromJSON)
 
@@ -67,7 +67,7 @@ hSearchNews maxLimit c s = do
   return $ sortNews (mSortBy s) $ Maybe.catMaybes lm
   where 
     searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_ (filterSearch s) (all_ (_news newsDB)) 
-    searchNews _ _ = limit_ (maxLimit) $ offset_ 0 $ filter_ (filterSearch s) (all_ (_news newsDB))
+    searchNews _ _ = limit_ maxLimit $ offset_ 0 $ filter_ (filterSearch s) (all_ (_news newsDB))
 
 hSearchContent :: Integer -> Connection -> Content -> IO [News]
 hSearchContent maxLimit c content =  do
@@ -75,7 +75,7 @@ hSearchContent maxLimit c content =  do
   return $ Maybe.catMaybes lm
   where 
     searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_' (filterContent' (Just content)) (all_ (_news newsDB)) 
-    searchNews _ _ = limit_ (maxLimit) $ offset_ 0 $ filter_' (filterContent' (Just content)) (all_ (_news newsDB))
+    searchNews _ _ = limit_ maxLimit $ offset_ 0 $ filter_' (filterContent' (Just content)) (all_ (_news newsDB))
 
 debugPosition :: Connection -> Content -> IO ByteString 
 debugPosition c content = do
@@ -105,15 +105,15 @@ sortNews (Just SBCountPhoto) = sortBy (\a b-> compare (V.length $ photoNews a) (
 sortNews Nothing = id
 
 filterSearch (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' _ _ _) n =
-  (filterDaySince mDaySince' n) &&.
-  (filterDayAt mDayAt' n) &&.
-  (filterDayUntil mDayUntil' n) &&.
-  (filterAuthor mAuthor' n) &&.
-  (filterCategory mCategory' n) &&.
-  (filterNewsName mNewsNam' n) &&.
-  (filterFlagPublished mFlagPublished' n) &&.
-  (filterContent mContent' n) &&.
-  (f mForString') 
+  filterDaySince mDaySince' n &&.
+  filterDayAt mDayAt' n &&.
+  filterDayUntil mDayUntil' n &&.
+  filterAuthor mAuthor' n &&.
+  filterCategory mCategory' n &&.
+  filterNewsName mNewsNam' n &&.
+  filterFlagPublished mFlagPublished' n &&.
+  filterContent mContent' n &&.
+  f mForString' 
   where
     f (Just fs) = 
       filterForStringName fs n ||. 
@@ -122,16 +122,15 @@ filterSearch (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsNam'
       filterForStringCategory fs n
     f Nothing = val_ True
 
-filterForStringContent fs n = (positionQNested (val_ fs) (_newsContent n)) /=. (val_ 0)
-filterForStringName s n = (positionQNested (val_ s) (_newsNewsName n)) /=. (val_ 0)
-filerForStringAuthor s n = (positionQNested (val_ s) (_newsNameAuthor n)) /=. (val_ 0)
-filterForStringCategory s n = (positionQNested (val_ s) (_newsCategory n)) /=. (val_ 0)
+filterForStringContent fs n = positionQNested (val_ fs) (_newsContent n) /=. val_ 0
+filterForStringName s n = positionQNested (val_ s) (_newsNewsName n) /=. val_ 0
+filerForStringAuthor s n = positionQNested (val_ s) (_newsNameAuthor n) /=. val_ 0
+filterForStringCategory s n = positionQNested (val_ s) (_newsCategory n) /=. val_ 0
 
-filterContent (Just c) n = (positionQNested (val_ c) (_newsContent n)) /=. 
-                           (val_ @(QGenExpr QValueContext _ _ Integer) 0)
+filterContent (Just c) n = positionQNested (val_ c) (_newsContent n) /=. val_  0
 filterContent Nothing _ = val_ True
 
-filterContent' (Just c) n = (positionQNested (val_ c) (_newsContent n)) /=?. (val_ 0)
+filterContent' (Just c) n = positionQNested (val_ c) (_newsContent n) /=?. val_ 0
 filterContent' Nothing _ = sqlBool_ $ val_ True
 
 -- filterFlagPublished :: Maybe FlagPublished -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
@@ -140,7 +139,7 @@ filterFlagPublished :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
                        SqlValable (Columnar f FlagPublished)) 
                        => Maybe (HaskellLiteralForQExpr (Columnar f FlagPublished))
                        -> NewsT f -> expr Bool
-filterFlagPublished (Just fp) n = (_newsPublic n) ==. (val_ fp)
+filterFlagPublished (Just fp) n = _newsPublic n ==. val_ fp
 filterFlagPublished Nothing _ = val_ True
     
 -- filterNewsName :: Maybe NewsName -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
@@ -149,7 +148,7 @@ filterNewsName :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
                   SqlValable (Columnar f NameNews)) 
                   => Maybe (HaskellLiteralForQExpr (Columnar f NameNews))
                   -> NewsT f -> expr Bool
-filterNewsName (Just nn) n = ({-traceShowId-} (_newsNewsName n) ) ==. (val_ ({-traceShowId-} nn))
+filterNewsName (Just nn) n = _newsNewsName n ==. val_ nn
 filterNewsName Nothing _ = val_ True
 
 -- filterCategory :: Maybe Category -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
@@ -158,7 +157,7 @@ filterCategory :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
                   SqlValable (Columnar f Category)) 
                   => Maybe (HaskellLiteralForQExpr (Columnar f Category))
                   -> NewsT f -> expr Bool
-filterCategory (Just c) n = (_newsCategory n) ==. (val_ c)
+filterCategory (Just c) n = _newsCategory n ==. val_ c
 filterCategory Nothing _ = val_ True
 
 -- filterAuthor :: Maybe Name -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
@@ -167,7 +166,7 @@ filterAuthor :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
                 SqlValable (Columnar f Name)) 
                 => Maybe (HaskellLiteralForQExpr (Columnar f Name))
                 -> NewsT f -> expr Bool
-filterAuthor (Just a) n = (_newsNameAuthor n) ==. (val_ a)
+filterAuthor (Just a) n = _newsNameAuthor n ==. val_ a
 filterAuthor Nothing _ = val_ True
 
 -- filterDaySince :: Maybe DaySince -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
@@ -176,7 +175,7 @@ filterDaySince :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
                   SqlValable (Columnar f Day)) 
                   => Maybe (HaskellLiteralForQExpr (Columnar f Day))
                   -> NewsT f -> expr Bool
-filterDaySince (Just ds) n = (_newsDateCreation n) ==. (val_ ds) 
+filterDaySince (Just ds) n = _newsDateCreation n ==. val_ ds 
 filterDaySince Nothing _ = val_ True
 
 -- filterDayAt :: Maybe DayAt -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
@@ -185,7 +184,7 @@ filterDayAt :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
                SqlValable (Columnar f Day)) 
                => Maybe (HaskellLiteralForQExpr (Columnar f Day))
                -> NewsT f -> expr Bool
-filterDayAt (Just dat) n = (_newsDateCreation n) >=. (val_ dat) 
+filterDayAt (Just dat) n = _newsDateCreation n >=. val_ dat 
 filterDayAt Nothing _ = val_ True
 
 -- filterDayUntil :: Maybe DayUntil -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
@@ -194,7 +193,7 @@ filterDayUntil :: (HaskellLiteralForQExpr (expr Bool) ~ Bool,
                   SqlValable (Columnar f Day)) 
                   => Maybe (HaskellLiteralForQExpr (Columnar f Day))
                   -> NewsT f -> expr Bool
-filterDayUntil (Just dat) n = (_newsDateCreation n) <=. (val_ dat) 
+filterDayUntil (Just dat) n = _newsDateCreation n <=. val_ dat 
 filterDayUntil Nothing _ = val_ True
 
 hGetDay :: IO Day
@@ -208,14 +207,13 @@ hModifNews c nn f = do
   case l of
     (x:_) -> do
       _ <- BPC.runDelete c $ delete (_news newsDB)
-        (\n-> _newsNewsName n ==. (val_ $ _newsNewsName x) )
-      let mn = fmap f $ newsTToNews x
-      _ <- traverse (\n-> do
+        (\n-> _newsNewsName n ==. val_ (_newsNewsName x) )
+      let mn = f <$> newsTToNews x
+      traverse_ (\n-> do
           BPC.runInsert c $ Beam.insert (_news newsDB) $ insertValues
             [ newsToNewsT n
             ]
         ) mn
-      return ()
     [] -> return ()
 
 hGetNews :: Connection -> NewsName -> IO (Maybe News)
@@ -290,7 +288,7 @@ instance Table NewsT where
     deriving (Generic, Beamable)
   primaryKey = NewsId . _newsNewsName
 
-data NewsDB f = NewsDB
+newtype NewsDB f = NewsDB
   { _news :: f (TableEntity NewsT) }
   deriving (Generic, Database be)
 

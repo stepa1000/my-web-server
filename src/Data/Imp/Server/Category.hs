@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE TypeApplications #-}
+-- {-# LANGUAGE DeriveGeneric #-}
+-- {-# LANGUAGE DeriveAnyClass #-}
+-- {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 module Data.Imp.Server.Category 
@@ -14,6 +14,7 @@ import Prelude as P
 import Control.Monad
 
 import Data.Maybe as Maybe
+import Data.Bifunctor
 
 import Data.Aeson as A
 import Data.List as List (unzip)
@@ -41,7 +42,7 @@ withHandle fp g = do
     _ -> error "fail is not opening"
 
 hGetCategory :: IORef NewsCategory -> IO NewsCategory
-hGetCategory nc = readIORef nc
+hGetCategory = readIORef 
 
 initNewsCategory' :: String -> IO ()
 initNewsCategory' fp = do
@@ -65,7 +66,7 @@ hCreateCategory rnc cr cn = do
 cutAddTree :: Eq a => Tree a -> a -> a -> a -> Tree a
 cutAddTree t e n n2 = f $ cutTree t n
   where
-    f (sf,mt) = maybe (Node n sf) id (fmap (\tn-> addTree tn e [Node n2 sf] ) mt)
+    f (sf,mt) = maybe (Node n sf) (\tn-> addTree tn e [Node n2 sf] )  mt
 
 -- | adds subtrees
 addTree :: Eq a => Tree a -> a -> [Tree a] -> Tree a
@@ -75,7 +76,7 @@ addTree t r lsf = snd $ mapTree t r f
 
 -- | returns the subtrees and the remaining tree
 cutTree :: Eq a => Tree a -> a -> ([Tree a],Maybe (Tree a) )
-cutTree t a = (\(x,y)-> (catMaybes $ fmap catMaybesTree x, catMaybesTree y) ) $ 
+cutTree t a = bimap (mapMaybe catMaybesTree) catMaybesTree $ 
   cutTree' (fmap Just t) (Just a)
 
 catMaybesTree :: Tree (Maybe a) -> Maybe (Tree a)
@@ -85,7 +86,7 @@ catMaybesTree = foldTree f
     f ma t = ma >>= (\a-> return $ Node a (catMaybes t))
 
 cutTree' :: Eq a => Tree (Maybe a) -> Maybe a -> ([Tree (Maybe a)],Tree (Maybe a))
-cutTree' t a = (\(x,y)->(join x,y)) $ mapTree t a f 
+cutTree' t a = first join $ mapTree t a f 
   where
     f (Just _) sf = (sf,Nothing,[])
     f Nothing _ = ([],Nothing,[])
@@ -98,7 +99,7 @@ renameNode t a an = snd $ mapTree t a (\_ ft->((),an,ft))
 -- and returns the tree with the changed the node
 mapTree :: Eq a => Tree a -> a -> (a -> [Tree a] -> (b,a,[Tree a])) -> ([b],Tree a)
 mapTree t a f 
-  | (rootLabel t) == a = (\(b,a2,sf)->([b],Node a2 sf) ) $ f a (subForest t)
-  | not $ P.null (subForest t) = (\(llb,sf)->(join llb, Node (rootLabel t) sf) ) $ 
+  | rootLabel t == a = (\(b,a2,sf)->([b],Node a2 sf) ) $ f a (subForest t)
+  | not $ P.null (subForest t) = bimap join (Node (rootLabel t)) $ 
     List.unzip  $ fmap (\tn-> mapTree tn a f) (subForest t)
-  | True = ([],t)
+  | otherwise = ([],t)

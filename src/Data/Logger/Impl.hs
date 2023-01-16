@@ -31,7 +31,7 @@ data PreConfig = PreConfig
 
 withPreConf :: PreConfig -> (Logger.Handle IO -> IO a) -> IO a
 withPreConf pc g = do
-  withPreConf' pc (\c-> withHandle c g)
+  withPreConf' pc (`withHandle` g)
 
 withPreConf' :: PreConfig -> (Config -> IO a) -> IO a
 withPreConf' pc g = do
@@ -56,7 +56,7 @@ data Config = Config
 
 liftHandleBaseIO :: MonadBase IO m
                  => Logger.Handle IO -> Logger.Handle m
-liftHandleBaseIO h = Logger.Handle {Logger.hLowLevelLog = \l t -> liftBase $ (Logger.hLowLevelLog h) l t } 
+liftHandleBaseIO h = Logger.Handle {Logger.hLowLevelLog = \l t -> liftBase $ Logger.hLowLevelLog h l t } 
 
 withHandle :: Config -> (Logger.Handle IO -> IO a) -> IO a
 withHandle config f = do
@@ -65,8 +65,8 @@ withHandle config f = do
   return a
 
 logWith :: Config -> Logger.Level -> T.Text -> IO ()
-logWith conf logLvl t | logLvl >= (confMinLevel conf) = do
-  T.hPutStrLn (confFileHandle conf) $ (T.pack $ show logLvl ++ ": " ) `T.append` t
+logWith conf logLvl t | logLvl >= confMinLevel conf = do
+  T.hPutStrLn (confFileHandle conf) $ T.pack (show logLvl ++ ": ") `T.append` t
   SIO.hFlush (confFileHandle conf)
 logWith _ _ _ = return ()
 

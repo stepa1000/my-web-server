@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE TypeApplications #-}
+-- {-# LANGUAGE DeriveGeneric #-}
+-- {-# LANGUAGE DeriveAnyClass #-}
+-- {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 module Data.Utils
@@ -17,7 +17,6 @@ import Conduit
 
 listStreamingRunSelect :: FromBackendRow Postgres a => Connection -> SqlSelect Postgres a -> IO [a] 
 listStreamingRunSelect c sqls = 
-  runConduitRes $ (streamingRunSelect c sqls
-       ) .| sinkList
+  runConduitRes $ streamingRunSelect c sqls .| sinkList
 
 

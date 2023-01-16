@@ -123,7 +123,7 @@ getNewsPrivateS :: Server.Handle IO
                 -> Maybe DayAt
                 -> Maybe DayUntil
                 -> Maybe DaySince
-                -> Maybe Name
+                -- -> Maybe Name
                 -> Maybe Category
                 -> Maybe NewsName
                 -> Maybe Content
@@ -133,10 +133,10 @@ getNewsPrivateS :: Server.Handle IO
                 -> Maybe OffSet
                 -> Maybe Limit
                 -> Servant.Handler [News]
-getNewsPrivateS sh bad mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit'
+getNewsPrivateS sh bad mDayAt' mDayUntil' mDaySince' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit'
   = handleErrorAuthorization sh $ Server.handleServerFind sh (Just bad) 
-    (Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit' )
-
+    (Search mDayAt' mDayUntil' mDaySince' (Just $ nameUser bad) mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit' )
+-- mAothor'
 categoryCreateS :: MonadIO m  
                 => Server.Handle IO
                 -> UserPublic 
@@ -169,11 +169,11 @@ createNewsNewS sh bad nn = do
   case mn of
     (Just n) -> return n
     Nothing -> do
-      liftIO $ Logger.logError (Server.handleLogger sh) $ "userCreate: creator not admin"
+      liftIO $ Logger.logError (Server.handleLogger sh) "userCreate: creator not admin"
       throwError $ ServerError
         { errHTTPCode = 404
         , errReasonPhrase = ""
-        , errBody = fromStrict $ B.empty
+        , errBody = fromStrict B.empty
         , errHeaders = []
         }
 
@@ -192,19 +192,19 @@ createNewsEdditS sh bad (Just nn) c nnn ca pu ph nph = do
   case mu of
     (Just u) -> return u
     _ -> do
-      liftIO $ Logger.logError (Server.handleLogger sh) $ "createNewsEddit: creator not maker news"
+      liftIO $ Logger.logError (Server.handleLogger sh) "createNewsEddit: creator not maker news"
       throwError $ ServerError
         { errHTTPCode = 403
         , errReasonPhrase = "creator not maker news"
-        , errBody = fromStrict $ B.empty
+        , errBody = fromStrict B.empty
         , errHeaders = []
         }
 createNewsEdditS sh _ _ _ _ _ _ _ _ = do
-  liftIO $ Logger.logError (Server.handleLogger sh) $ "createNewsEddit: parametors not just"
+  liftIO $ Logger.logError (Server.handleLogger sh) "createNewsEddit: parametors not just"
   throwError $ ServerError
     { errHTTPCode = 400
     , errReasonPhrase = "parametors not just"
-    , errBody = fromStrict $ B.empty
+    , errBody = fromStrict B.empty
     , errHeaders = []
     }
 
@@ -221,25 +221,25 @@ userCreateS sh bad (Just n) (Just l) (Just p) (Just fm) (Just fa) = do
   case mu of
     (Just u) -> return u
     _ -> do
-      liftIO $ Logger.logError (Server.handleLogger sh) $ "userCreate: creator not admin"
+      liftIO $ Logger.logError (Server.handleLogger sh) "userCreate: creator not admin"
       throwError $ ServerError
         { errHTTPCode = 404
         , errReasonPhrase = ""
-        , errBody = fromStrict $ B.empty
+        , errBody = fromStrict B.empty
         , errHeaders = []
         }
 userCreateS sh _ _ _ _ _ _ = do
-  liftIO $ Logger.logError (Server.handleLogger sh) $ "userCreate: parametors not just"
+  liftIO $ Logger.logError (Server.handleLogger sh) "userCreate: parametors not just"
   throwError $ ServerError
     { errHTTPCode = 404
      , errReasonPhrase = ""
-     , errBody = fromStrict $ B.empty
+     , errBody = fromStrict B.empty
      , errHeaders = []
     }
 
 userListS :: MonadIO m 
           => Server.Handle IO -> Maybe OffSet -> Maybe Limit -> m [UserPublic]
-userListS sh mo ml = liftIO $ Server.handleUserList sh (maybe 0 id mo) (maybe 0 id ml)
+userListS sh mo ml = liftIO $ Server.handleUserList sh (fromMaybe 0 mo) (fromMaybe 0 id ml)
 
 photoGetS :: Server.Handle IO -> Maybe Photo -> Servant.Handler Base64
 photoGetS sh (Just ph) = do
@@ -251,15 +251,15 @@ photoGetS sh (Just ph) = do
       throwError $ ServerError
         { errHTTPCode = 400
         , errReasonPhrase = "photo not found"
-        , errBody = fromStrict $ B.empty
+        , errBody = fromStrict B.empty
         , errHeaders = []
         }
 photoGetS sh _ = do
-  liftIO $ Logger.logError (Server.handleLogger sh) $ "photoGet: parametors not just"
+  liftIO $ Logger.logError (Server.handleLogger sh) "photoGet: parametors not just"
   throwError $ ServerError
     { errHTTPCode = 404
      , errReasonPhrase = ""
-     , errBody = fromStrict $ B.empty
+     , errBody = fromStrict B.empty
      , errHeaders = []
     }
  
@@ -271,21 +271,21 @@ handleErrorAuthorization h m = do
       throwError $ ServerError
         { errHTTPCode = 400
         , errReasonPhrase = "authorization fail"
-        , errBody = fromStrict $ B.empty
+        , errBody = fromStrict B.empty
         , errHeaders = []
         }
     (Left ServerAuthorization.ErrorAdminCheck) -> 
       throwError $ ServerError
         { errHTTPCode = 404
         , errReasonPhrase = ""
-        , errBody = fromStrict $ B.empty
+        , errBody = fromStrict B.empty
         , errHeaders = []
         }
     (Left ServerAuthorization.ErrorCreatorNewsCheck) ->
       throwError $ ServerError
         { errHTTPCode = 400
         , errReasonPhrase = "user cannot create news"
-        , errBody = fromStrict $ B.empty
+        , errBody = fromStrict B.empty
         , errHeaders = []
         }
     (Right a) -> return a
@@ -293,11 +293,11 @@ handleErrorAuthorization h m = do
 authcheck :: Server.Handle IO -> BasicAuthCheck UserPublic
 authcheck sh = BasicAuthCheck $ \ bad -> do
   ServerAuthorization.hCatchErrorAuthorization (Server.handleAuthorization sh)
-    (fmap g $ ServerAuthorization.handleCheckAccountStrong 
+    (g <$> ServerAuthorization.handleCheckAccountStrong 
       (Server.handleAuthorization sh) (basicAuthDataToLogined bad)
     ) f     
   where
-    f _ = return $ Unauthorized
+    f _ = return Unauthorized
     g (Just a) = Authorized a
     g _ = Unauthorized
 

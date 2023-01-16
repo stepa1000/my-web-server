@@ -35,14 +35,14 @@ makeHandle c = SPhoto.Handle
 
 hGetPhoto :: Connection -> Photo -> IO (Maybe Base64)
 hGetPhoto c p' = do
-  l <- fmap (join . maybeToList) $ traverse 
+  l <- join . maybeToList <$> traverse 
     (\p-> listStreamingRunSelect c $ lookup_ (_photos photoDB) (primaryKey $ 
       PhotoT 
         { _photoUuid = p
         , _photoData = undefined
         }))
     (fromText p') 
-  return $ fmap _photoData $ listToMaybe l
+  return (_photoData <$> listToMaybe l)
 
 hPutPhoto :: Connection -> Base64 -> IO Photo
 hPutPhoto c b = do
@@ -65,7 +65,7 @@ instance Table PhotoT where
     deriving (Generic, Beamable)
   primaryKey = PhotoId . _photoUuid
 
-data PhotoDB f = PhotoDB
+newtype PhotoDB f = PhotoDB
   { _photos :: f (TableEntity PhotoT)
   } deriving (Generic, Database be)
 

@@ -41,7 +41,7 @@ handleEditNews :: Monad m
                -> m (Maybe News)
 handleEditNews h login nameN content newNameNews category flagP vP vB64 = do
   vnpic <- P.mapM (Photo.hPutPhoto (handlePhoto h) ) vB64
-  mn <- (\m-> m >>= f ) <$> hGetNews h nameN
+  mn <- (>>= f) <$> hGetNews h nameN
   case mn of
     (Just n) -> do
       let n2 = (editNews n) {photoNews = vP V.++ vnpic}
@@ -49,7 +49,7 @@ handleEditNews h login nameN content newNameNews category flagP vP vB64 = do
       return $ Just n2
     _ -> return Nothing
   where
-    f n = guard ((loginAuthor n) == login) >> return n
+    f n = guard (loginAuthor n == login) >> return n
     editNews = editNewsContent content . 
       editNewsNameNews newNameNews . 
       editNewsCategory category . 
@@ -76,9 +76,9 @@ handleCreateNews h l name nc = do
   let vbs = newPhotoNewsCreate nc
   vnpic <- P.mapM (Photo.hPutPhoto (handlePhoto h) ) vbs
   d <- hGetDay h
-  let news = n d ((photoNewsCreate nc) V.++ vnpic)
+  let news = n d (photoNewsCreate nc V.++ vnpic)
   hPutNews h news
-  return $ news
+  return news
   where
     n d vp = News 
       { nameNews = nameNewsCreate nc
@@ -94,6 +94,5 @@ handleCreateNews h l name nc = do
 handleFind :: Handle m
            -> Search
            -> m [News]
-handleFind h search = 
-  hSearchNews h search
+handleFind = hSearchNews 
 

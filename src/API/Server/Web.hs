@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE OverloadedStrings #-}
+-- {-# LANGUAGE DeriveGeneric #-}
+-- {-# LANGUAGE OverloadedStrings #-}
 
 module API.Server.Web  
   ( basicAuthDataToLogined
@@ -69,7 +69,7 @@ type API = "get_news" :> "public"
                       :> QueryParam "created_at" DayAt
                       :> QueryParam "created_until" DayUntil
                       :> QueryParam "created_since" DaySince
-                      :> QueryParam "aothor_name" Name
+                      -- :> QueryParam "aothor_name" Name
                       :> QueryParam "category" Category
                       :> QueryParam "news_name" NewsName
                       :> QueryParam "content" Content
@@ -92,7 +92,7 @@ type API = "get_news" :> "public"
       :<|> "create_news" :> "new" :> BasicAuth "user" UserPublic
                                   :> ReqBody '[JSON] NewsCreate
                                   -- :> QueryParams "new_photos" ByteString
-                                  :> Get '[JSON] News
+                                  :> Post '[JSON] News
       :<|> "create_news" :> "edit" :> BasicAuth "user" UserPublic
                                    :> QueryParam "news_name" NameNews
                                    :> QueryParam "text" Content
@@ -138,7 +138,7 @@ getNewsPrivate :: BasicAuthData
                -> Maybe DayAt 
                -> Maybe DayUntil 
                -> Maybe DaySince 
-               -> Maybe Name    
+               -- -> Maybe Name    
                -> Maybe Category
                -> Maybe NewsName
                -> Maybe Content

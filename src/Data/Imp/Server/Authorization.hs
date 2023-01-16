@@ -53,7 +53,7 @@ import Data.Utils
 
 import qualified Control.Server.Authorization as ServerAuthorization
 
-data Config = Config
+newtype Config = Config
   { -- confConnectInfo :: ConnectInfo
    confLimit :: Int
   } deriving (Show, Generic, ToJSON, FromJSON)
@@ -83,7 +83,7 @@ makeHandle config c =
     }
 
 hCatchErrorAuthorization :: IO a -> (ServerAuthorization.ErrorAuthorization -> IO a) -> IO a
-hCatchErrorAuthorization ma c = catch ma c
+hCatchErrorAuthorization = catch 
 
 hCreatorNewsCheckFail :: IO ()
 hCreatorNewsCheckFail = do
@@ -100,7 +100,7 @@ hAuthorizationFail = do
 hGetAccount :: Connection -> Login -> IO (Maybe UserPublic)
 hGetAccount c login = do
   l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ loginUserT login)
-  return $ fmap userTToUserPublic $ listToMaybe l
+  return (userTToUserPublic <$> listToMaybe l)
 
 hCheckAccount :: Connection -> Login -> Password -> IO (Maybe UserPublic)
 hCheckAccount c login p = do
@@ -108,9 +108,9 @@ hCheckAccount c login p = do
   case l of
     (x:_) -> do
       let px = _userPasswordHash x
-      if px == (getHash p)
+      if px == getHash p
         then return $ Just $ userTToUserPublic x
-        else return $ Nothing
+        else return Nothing
     [] -> return Nothing
 
 hUserList :: Connection -> Config -> OffSet -> Limit -> IO [UserPublic]
@@ -119,8 +119,8 @@ hUserList conn config offset limit' = do -- error "Not implement"
     orderBy_ (asc_ . _userLogin) $ all_ (_accounts accountDB) 
   return $ fmap userTToUserPublic lut
   where
-    limit = if (limit' > (confLimit config)) || (limit' <= 0)
-      then (confLimit config)
+    limit = if (limit' > confLimit config) || (limit' <= 0)
+      then confLimit config
       else limit'
       
 userTToUserPublic :: (Columnar f Day ~ Day, Columnar f Name ~ Text,
@@ -197,7 +197,7 @@ instance Table UserT where
     deriving (Generic, Beamable)
   primaryKey = UserId . _userLogin
 
-data AccountDB f = AccountDB
+newtype AccountDB f = AccountDB
   { _accounts :: f (TableEntity UserT) } 
   deriving (Generic, Database be)
 

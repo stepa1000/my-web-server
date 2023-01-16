@@ -47,7 +47,7 @@ handleServerFind h Nothing
     Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' (Just True) mSortBy' mOffSet' mLimit'
 handleServerFind h muserPublic
     (Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit') = do
-  if (isJust muserPublic)
+  if isJust muserPublic
   then do
     ServerNews.handleFind (handleNews h) $
       Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit'
@@ -93,7 +93,7 @@ handleCreateNewsNew :: Monad m => Handle m -> UserPublic {- Logined -} -> NewsCr
 handleCreateNewsNew h userpublic nc = do
   case userpublic of
     (UserPublic name login _ _ True) -> do
-      fmap Just $ ServerNews.handleCreateNews (handleNews h) login name nc
+      Just <$> ServerNews.handleCreateNews (handleNews h) login name nc
     _ -> do
       ServerAuthorization.hCreatorNewsCheckFail (handleAuthorization h) 
       return Nothing
@@ -134,6 +134,6 @@ handleUserList h offset limit = do
   ServerAuthorization.hUserList (handleAuthorization h) offset limit
 
 handlePhotoGet :: Handle m -> Photo -> m (Maybe Base64)
-handlePhotoGet h p =
-  ServerPhoto.hGetPhoto (ServerNews.handlePhoto $ handleNews h) p
+handlePhotoGet h =
+  ServerPhoto.hGetPhoto (ServerNews.handlePhoto $ handleNews h)
 
