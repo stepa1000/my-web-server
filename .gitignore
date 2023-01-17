@@ -2,4 +2,6 @@
 config
 data
 logging
+.vscode
+.history
 *~
