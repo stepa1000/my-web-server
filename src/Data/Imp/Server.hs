@@ -46,6 +46,7 @@ import Control.Monad.Error.Class
 import Data.Vector as V
 import Data.ByteString as B
 import Data.Yaml
+import Data.Maybe
 
 import Data.News
 import Data.User
@@ -239,7 +240,7 @@ userCreateS sh _ _ _ _ _ _ = do
 
 userListS :: MonadIO m 
           => Server.Handle IO -> Maybe OffSet -> Maybe Limit -> m [UserPublic]
-userListS sh mo ml = liftIO $ Server.handleUserList sh (fromMaybe 0 mo) (fromMaybe 0 id ml)
+userListS sh mo ml = liftIO $ Server.handleUserList sh (fromMaybe 0 mo) (fromMaybe 0 ml)
 
 photoGetS :: Server.Handle IO -> Maybe Photo -> Servant.Handler Base64
 photoGetS sh (Just ph) = do
@@ -304,10 +305,10 @@ authcheck sh = BasicAuthCheck $ \ bad -> do
 withHandle :: Config -> (Server.Handle IO -> IO a) -> IO a
 withHandle conf g = do
   con <- Beam.connect $ confConnectionInfo conf
-  let snh = News.makeHandle (confNews conf) con
-  let ah = Authorization.makeHandle (confAuthorization conf) con
-  Category.withHandle (confFailPathToCategoryNews conf) (\ ch -> do
-    ImpLogger.withPreConf (confLogger conf) (\ lh -> do
+  ImpLogger.withPreConf (confLogger conf) (\ lh -> do
+    let snh = News.makeHandle lh (confNews conf) con
+    let ah = Authorization.makeHandle lh (confAuthorization conf) con
+    Category.withHandle lh (confFailPathToCategoryNews conf) (\ ch -> do
       a <- g $ Server.Handle
         { Server.handleLogger = lh
         , Server.handleNews = snh
@@ -322,10 +323,10 @@ withHandle conf g = do
 withHandleTest :: Config -> ((Server.Handle IO, Connection) -> IO a) -> IO a
 withHandleTest conf g = do
   con <- Beam.connect $ confConnectionInfo conf
-  let snh = News.makeHandle (confNews conf) con
-  let ah = Authorization.makeHandle (confAuthorization conf) con
-  Category.withHandle (confFailPathToCategoryNews conf) (\ ch -> do
-    ImpLogger.withPreConf (confLogger conf) (\ lh -> do
+  ImpLogger.withPreConf (confLogger conf) (\ lh -> do
+    let snh = News.makeHandle lh (confNews conf) con
+    let ah = Authorization.makeHandle lh (confAuthorization conf) con
+    Category.withHandle lh (confFailPathToCategoryNews conf) (\ ch -> do
       a <- g (Server.Handle
         { Server.handleLogger = lh
         , Server.handleNews = snh

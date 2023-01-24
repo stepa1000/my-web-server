@@ -34,6 +34,7 @@ import Data.Time.Clock
 
 import Data.Maybe as Maybe
 import Data.Vector as V
+import Data.Foldable
 
 import Data.Aeson as A
 import Data.Yaml as Y
@@ -46,23 +47,25 @@ import Data.Utils
 
 import qualified Data.Imp.Server.Photo as ImpSPhoto
 import qualified Control.Server.News as SNews
+import qualified Control.Logger as Logger
 
 newtype Config = Config
   {confMaxLimit :: Integer} 
   deriving (Generic, Y.ToJSON, Y.FromJSON)
 
-makeHandle :: Config -> Connection -> SNews.Handle IO
-makeHandle conf c = SNews.Handle 
-  { SNews.handlePhoto = ImpSPhoto.makeHandle c
-  , SNews.hSearchNews = hSearchNews (confMaxLimit conf) c
-  , SNews.hPutNews = hPutNews c
-  , SNews.hGetNews = hGetNews c
-  , SNews.hModifNews = hModifNews c
+makeHandle :: Logger.Handle IO -> Config -> Connection -> SNews.Handle IO
+makeHandle hl conf c = SNews.Handle 
+  { SNews.handlePhoto = ImpSPhoto.makeHandle hl c
+  , SNews.hSearchNews = hSearchNews hl (confMaxLimit conf) c
+  , SNews.hPutNews = hPutNews hl c
+  , SNews.hGetNews = hGetNews hl c
+  , SNews.hModifNews = hModifNews hl c
   , SNews.hGetDay = hGetDay
   }
 
-hSearchNews :: Integer -> Connection -> Search -> IO [News]
-hSearchNews maxLimit c s = do
+hSearchNews :: Logger.Handle IO -> Integer -> Connection -> Search -> IO [News]
+hSearchNews hl maxLimit c s = do
+  Logger.logInfo hl "Search news"
   lm <- (fmap . fmap) newsTToNews $ listStreamingRunSelect c $ select $ searchNews (toInteger <$> mLimit s) (toInteger <$> mOffSet s)
   return $ sortNews (mSortBy s) $ Maybe.catMaybes lm
   where 
@@ -201,8 +204,9 @@ hGetDay = do
   (UTCTime d _) <- getCurrentTime
   return d
 
-hModifNews :: Connection -> NameNews -> (News -> News) -> IO ()
-hModifNews c nn f = do
+hModifNews :: Logger.Handle IO -> Connection -> NameNews -> (News -> News) -> IO ()
+hModifNews hl c nn f = do
+  Logger.logInfo hl "Modify news"
   l <- listStreamingRunSelect c $ lookup_ (_news newsDB) (primaryKey $ nameNewsT nn)
   case l of
     (x:_) -> do
@@ -216,20 +220,24 @@ hModifNews c nn f = do
         ) mn
     [] -> return ()
 
-hGetNews :: Connection -> NewsName -> IO (Maybe News)
-hGetNews c nn = do
+hGetNews :: Logger.Handle IO -> Connection -> NewsName -> IO (Maybe News)
+hGetNews hl c nn = do
+  Logger.logInfo hl "Gut news"
   l <- listStreamingRunSelect c $ lookup_ (_news newsDB) (primaryKey $ nameNewsT nn)
   case l of
     (x:_) -> return $ newsTToNews x
     [] -> return Nothing
       
 
-hPutNews :: Connection -> News -> IO ()
-hPutNews c n = do
+hPutNews :: Logger.Handle IO -> Connection -> News -> IO ()
+hPutNews hl c n = do
+  Logger.logInfo hl "Put news"
   _ <- BPC.runInsert c $ Beam.insert (_news newsDB) $ insertValues
     [ newsToNewsT n
     ]
   return ()
+
+-- NewsT for beam
 
 newsTToNews :: NewsTId -> Maybe News
 newsTToNews n = do

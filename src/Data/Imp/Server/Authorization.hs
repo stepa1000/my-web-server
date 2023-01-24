@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Data.Imp.Server.Authorization 
   ( makeHandle
@@ -52,6 +53,7 @@ import Data.Types
 import Data.Utils
 
 import qualified Control.Server.Authorization as ServerAuthorization
+import qualified Control.Logger as Logger
 
 newtype Config = Config
   { -- confConnectInfo :: ConnectInfo
@@ -69,41 +71,48 @@ Name -> Login -> Password -> FlagMakeNews -> FlagAdmin
 --withServerAuthorization :: Config -> (ServerAuthorization.Handle IO -> IO a) -> IO a
 --withServerAuthorization c f = error "Not implement"
 
-makeHandle :: Config -> Connection -> ServerAuthorization.Handle IO
-makeHandle config c =
+makeHandle :: Logger.Handle IO -> Config -> Connection -> ServerAuthorization.Handle IO
+makeHandle hl config c =
   ServerAuthorization.Handle 
-    { ServerAuthorization.hCreateUser = hCreateUser c -- config
-    , ServerAuthorization.hUserList = hUserList c config
-    , ServerAuthorization.hCheckAccount = hCheckAccount c
-    , ServerAuthorization.hGetAccount = hGetAccount c
-    , ServerAuthorization.hAuthorizationFail = hAuthorizationFail
-    , ServerAuthorization.hAdminCheckFail = hAdminCheckFail
-    , ServerAuthorization.hCreatorNewsCheckFail = hCreatorNewsCheckFail
-    , ServerAuthorization.hCatchErrorAuthorization = hCatchErrorAuthorization
+    { ServerAuthorization.hCreateUser = hCreateUser hl c -- config
+    , ServerAuthorization.hUserList = hUserList hl c config
+    , ServerAuthorization.hCheckAccount = hCheckAccount hl c
+    , ServerAuthorization.hGetAccount = hGetAccount hl c
+    , ServerAuthorization.hAuthorizationFail = hAuthorizationFail hl
+    , ServerAuthorization.hAdminCheckFail = hAdminCheckFail hl
+    , ServerAuthorization.hCreatorNewsCheckFail = hCreatorNewsCheckFail hl
+    , ServerAuthorization.hCatchErrorAuthorization = hCatchErrorAuthorization hl
     }
 
-hCatchErrorAuthorization :: IO a -> (ServerAuthorization.ErrorAuthorization -> IO a) -> IO a
-hCatchErrorAuthorization = catch 
+hCatchErrorAuthorization :: Logger.Handle IO -> IO a -> (ServerAuthorization.ErrorAuthorization -> IO a) -> IO a
+hCatchErrorAuthorization hl act react = do
+  Logger.logInfo hl "Catch error authorization"
+  catch act react
 
-hCreatorNewsCheckFail :: IO ()
-hCreatorNewsCheckFail = do
+hCreatorNewsCheckFail :: Logger.Handle IO -> IO ()
+hCreatorNewsCheckFail hl = do
+  Logger.logError hl "Creator news check"
   throwM ServerAuthorization.ErrorCreatorNewsCheck
 
-hAdminCheckFail :: IO ()
-hAdminCheckFail = do
+hAdminCheckFail :: Logger.Handle IO -> IO ()
+hAdminCheckFail hl = do
+  Logger.logError hl "Admin check"
   throwM ServerAuthorization.ErrorAdminCheck
 
-hAuthorizationFail :: IO ()
-hAuthorizationFail = do
+hAuthorizationFail :: Logger.Handle IO -> IO ()
+hAuthorizationFail hl = do
+  Logger.logError hl "Authorization"
   throwM ServerAuthorization.ErrorAuthorization
 
-hGetAccount :: Connection -> Login -> IO (Maybe UserPublic)
-hGetAccount c login = do
+hGetAccount :: Logger.Handle IO -> Connection -> Login -> IO (Maybe UserPublic)
+hGetAccount hl c login = do
+  Logger.logInfo hl "Get account"
   l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ loginUserT login)
   return (userTToUserPublic <$> listToMaybe l)
 
-hCheckAccount :: Connection -> Login -> Password -> IO (Maybe UserPublic)
-hCheckAccount c login p = do
+hCheckAccount :: Logger.Handle IO -> Connection -> Login -> Password -> IO (Maybe UserPublic)
+hCheckAccount hl c login p = do 
+  Logger.logInfo hl "Check account"
   l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ loginUserT login)
   case l of
     (x:_) -> do
@@ -113,8 +122,9 @@ hCheckAccount c login p = do
         else return Nothing
     [] -> return Nothing
 
-hUserList :: Connection -> Config -> OffSet -> Limit -> IO [UserPublic]
-hUserList conn config offset limit' = do -- error "Not implement"
+hUserList :: Logger.Handle IO -> Connection -> Config -> OffSet -> Limit -> IO [UserPublic]
+hUserList hl conn config offset limit' = do 
+  Logger.logInfo hl "Get user list"-- error "Not implement"
   lut <- listStreamingRunSelect conn $ select $ limit_ (toInteger limit) $ offset_ (toInteger offset) $
     orderBy_ (asc_ . _userLogin) $ all_ (_accounts accountDB) 
   return $ fmap userTToUserPublic lut
@@ -134,8 +144,9 @@ userTToUserPublic ut = UserPublic
       , makeNewsUser = _userMakeNews ut
       }
 
-hCreateUser :: Connection -> Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> IO UserPublic
-hCreateUser c name login password flagMN flagA = do
+hCreateUser :: Logger.Handle IO -> Connection -> Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> IO UserPublic
+hCreateUser hl c name login password flagMN flagA = do 
+  Logger.logInfo hl "Create user"
   l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ loginUserT login)
        -- ) .| sinkList -- (sinkVectorN )
   case l of
@@ -179,6 +190,8 @@ loginUserT login = UserT
           , _userAdmin = undefined --  flagA
           , _userMakeNews = undefined -- flagMN
           }
+
+-- UserT for beam
 
 data UserT f = UserT
   { _userName :: Columnar f Name

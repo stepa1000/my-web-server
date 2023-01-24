@@ -1,8 +1,9 @@
 {-# LANGUAGE TypeFamilies #-}
 -- {-# LANGUAGE DeriveGeneric #-}
 -- {-# LANGUAGE DeriveAnyClass #-}
--- {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Data.Imp.Server.Category 
   ( withHandle
@@ -15,6 +16,7 @@ import Control.Monad
 
 import Data.Maybe as Maybe
 import Data.Bifunctor
+import Data.Text
 
 import Data.Aeson as A
 import Data.List as List (unzip)
@@ -24,43 +26,52 @@ import Data.Tree as Tree
 import Data.Types
 
 import qualified Control.Server.Category as Category
+import qualified Control.Logger as Logger
 
-withHandle :: FilePath -> (Category.Handle IO -> IO a) -> IO a
-withHandle fp g = do
+withHandle :: Logger.Handle IO -> FilePath -> (Category.Handle IO -> IO a) -> IO a
+withHandle hl fp g = do
   mnc <- decodeFileStrict fp
   case mnc of
     (Just nc) -> do
       rnc <- newIORef nc
       a <- g $ Category.Handle
-        { Category.hGetCategory = hGetCategory rnc
-        , Category.hChangeCategory = hChangeCategory rnc
-        , Category.hCreateCategory = hCreateCategory rnc
+        { Category.hGetCategory = hGetCategory hl rnc
+        , Category.hChangeCategory = hChangeCategory hl rnc
+        , Category.hCreateCategory = hCreateCategory hl rnc
         }
       nc2 <- readIORef rnc
       A.encodeFile fp nc2
       return a
     _ -> error "fail is not opening"
 
-hGetCategory :: IORef NewsCategory -> IO NewsCategory
-hGetCategory = readIORef 
+hGetCategory :: Logger.Handle IO -> IORef NewsCategory -> IO NewsCategory
+hGetCategory hl r = do 
+  Logger.logInfo hl "Get category"
+  readIORef r
 
 initNewsCategory' :: String -> IO ()
 initNewsCategory' fp = do
-  encodeFile fp $ Node "General" []
+  encodeFile @(Tree Text) fp $ Node "General" []
 
 -- | changing category name and ancestor
-hChangeCategory :: IORef NewsCategory -> Category -> Maybe Category -> Maybe Category -> IO ()
-hChangeCategory rnc c (Just nrc) (Just nnc) = do
+hChangeCategory :: Logger.Handle IO -> IORef NewsCategory -> Category -> Maybe Category -> Maybe Category -> IO ()
+hChangeCategory hl rnc c (Just nrc) (Just nnc) = do
+  Logger.logInfo hl "Change category: name and ancestor"
   modifyIORef rnc (\nc -> cutAddTree nc nrc c nnc)
-hChangeCategory rnc c (Just nrc) Nothing = do
+hChangeCategory hl rnc c (Just nrc) Nothing = do
+  Logger.logInfo hl "Change category: ancestor"
   modifyIORef rnc (\nc -> cutAddTree nc nrc c c)
-hChangeCategory rnc c Nothing (Just nnc) = do
+hChangeCategory hl rnc c Nothing (Just nnc) = do
+  Logger.logInfo hl "Change category: name"
   modifyIORef rnc (\nc -> renameNode nc c nnc)
-hChangeCategory _ _ Nothing Nothing = return () -- loging the
+hChangeCategory hl _ _ Nothing Nothing = do 
+  Logger.logInfo hl "Change category: Nothing"
+  return () -- loging the
 
 -- | adds categories under category
-hCreateCategory :: IORef NewsCategory -> Category -> Category -> IO ()
-hCreateCategory rnc cr cn = do
+hCreateCategory :: Logger.Handle IO -> IORef NewsCategory -> Category -> Category -> IO ()
+hCreateCategory hl rnc cr cn = do
+  Logger.logInfo hl "Create category"
   modifyIORef rnc (\t-> addTree t cr [Node cn []])
 
 cutAddTree :: Eq a => Tree a -> a -> a -> a -> Tree a

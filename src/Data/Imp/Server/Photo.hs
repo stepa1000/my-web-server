@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Data.Imp.Server.Photo 
   ( makeHandle
@@ -26,15 +27,17 @@ import Data.Types
 import Data.Utils
 
 import qualified Control.Server.Photo as SPhoto
+import qualified Control.Logger as Logger
 
-makeHandle :: Connection -> SPhoto.Handle IO
-makeHandle c = SPhoto.Handle
-  { SPhoto.hPutPhoto = hPutPhoto c
-  , SPhoto.hGetPhoto = hGetPhoto c
+makeHandle :: Logger.Handle IO -> Connection -> SPhoto.Handle IO
+makeHandle hl c = SPhoto.Handle
+  { SPhoto.hPutPhoto = hPutPhoto hl c
+  , SPhoto.hGetPhoto = hGetPhoto hl c
   }
 
-hGetPhoto :: Connection -> Photo -> IO (Maybe Base64)
-hGetPhoto c p' = do
+hGetPhoto :: Logger.Handle IO -> Connection -> Photo -> IO (Maybe Base64)
+hGetPhoto hl c p' = do
+  Logger.logInfo hl "Get photo"
   l <- join . maybeToList <$> traverse 
     (\p-> listStreamingRunSelect c $ lookup_ (_photos photoDB) (primaryKey $ 
       PhotoT 
@@ -44,8 +47,9 @@ hGetPhoto c p' = do
     (fromText p') 
   return (_photoData <$> listToMaybe l)
 
-hPutPhoto :: Connection -> Base64 -> IO Photo
-hPutPhoto c b = do
+hPutPhoto :: Logger.Handle IO -> Connection -> Base64 -> IO Photo
+hPutPhoto hl c b = do
+  Logger.logInfo hl "Put photo"
   u <- randomIO @UUID
   _ <- BPC.runInsert c $ insert (_photos photoDB) $ insertValues
     [ PhotoT u b
