@@ -8,7 +8,6 @@
 module Data.Imp.Server.Authorization
   ( makeHandle,
     Config (..),
-    -- , ErrorAuthorization(..)
     UserT (..),
     UserTId,
     UserId,
@@ -17,20 +16,7 @@ module Data.Imp.Server.Authorization
   )
 where
 
--- import Servant.API
--- import Servant.Server as Servant
-
 import Conduit
--- import Control.Applicative
-
--- import Control.Monad.Error
-
--- import Crypto.Hash.IO
-
--- import Data.Typeable
-
--- import Data.News
-
 import qualified Control.Logger as Logger
 import Control.Monad.Catch
 import qualified Control.Server.Authorization as ServerAuthorization
@@ -53,27 +39,14 @@ import GHC.Generics
 import Prelude as P
 
 newtype Config = Config
-  { -- confConnectInfo :: ConnectInfo
-    confLimit :: Int
+  { confLimit :: Int
   }
   deriving (Show, Generic, ToJSON, FromJSON)
-
-{-
-data ErrorAuthorization
-  = ErrorAuthorization
-  | ErrorAdminCheck
-  | ErrorCreatorNewsCheck
-  deriving (Typeable, Show, Eq, Exception)
-
-Name -> Login -> Password -> FlagMakeNews -> FlagAdmin
--}
--- withServerAuthorization :: Config -> (ServerAuthorization.Handle IO -> IO a) -> IO a
--- withServerAuthorization c f = error "Not implement"
 
 makeHandle :: Logger.Handle IO -> Config -> Connection -> ServerAuthorization.Handle IO
 makeHandle hl config c =
   ServerAuthorization.Handle
-    { ServerAuthorization.hCreateUser = hCreateUser hl c, -- config
+    { ServerAuthorization.hCreateUser = hCreateUser hl c,
       ServerAuthorization.hUserList = hUserList hl c config,
       ServerAuthorization.hCheckAccount = hCheckAccount hl c,
       ServerAuthorization.hGetAccount = hGetAccount hl c,
@@ -123,7 +96,7 @@ hCheckAccount hl c login p = do
 
 hUserList :: Logger.Handle IO -> Connection -> Config -> OffSet -> Limit -> IO [UserPublic]
 hUserList hl conn config offset limit' = do
-  Logger.logInfo hl "Get user list" -- error "Not implement"
+  Logger.logInfo hl "Get user list"
   lut <-
     listStreamingRunSelect conn $
       select $
@@ -158,7 +131,6 @@ hCreateUser :: Logger.Handle IO -> Connection -> Name -> Login -> Password -> Fl
 hCreateUser hl c name login password flagMN flagA = do
   Logger.logInfo hl "Create user"
   l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ loginUserT login)
-  -- ) .| sinkList -- (sinkVectorN )
   case l of
     [] -> do
       (UTCTime day _) <- getCurrentTime
@@ -199,12 +171,12 @@ getHash = convert . hashlazy @SHA256 . Binary.encode
 loginUserT :: Login -> UserTId
 loginUserT login =
   UserT
-    { _userName = undefined, -- name
+    { _userName = undefined,
       _userLogin = login,
-      _userPasswordHash = undefined, -- getHash password
-      _userDateCreation = undefined, -- day
-      _userAdmin = undefined, --  flagA
-      _userMakeNews = undefined -- flagMN
+      _userPasswordHash = undefined,
+      _userDateCreation = undefined,
+      _userAdmin = undefined,
+      _userMakeNews = undefined
     }
 
 -- UserT for beam

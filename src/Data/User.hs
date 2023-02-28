@@ -20,8 +20,7 @@ import GHC.Generics
 data UserPublic = UserPublic
   { nameUser :: Name,
     loginUser :: Login,
-    -- , passwordHashUser :: B.ByteString
-    dateCreationUser :: Day, -- UTCTime
+    dateCreationUser :: Day,
     adminUser :: FlagAdmin,
     makeNewsUser :: FlagMakeNews
   }

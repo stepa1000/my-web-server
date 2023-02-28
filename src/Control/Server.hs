@@ -32,7 +32,6 @@ data Handle m = Handle
     handleNews :: ServerNews.Handle m,
     handleCategory :: ServerCategory.Handle m,
     handleAuthorization :: ServerAuthorization.Handle m
-    -- , hHoistToServerHandle :: forall x. m x -> Servant.Handler x
   }
 
 handleServerFind ::
@@ -61,12 +60,11 @@ handleServerFind
 handleCategoryCreate ::
   Monad m =>
   Handle m ->
-  UserPublic -> -- Logined
-  Category -> -- root
+  UserPublic ->
+  Category -> -- is root
   Category ->
   m NewsCategory
 handleCategoryCreate h userpublic mc c = do
-  -- error "Not implement"
   case userpublic of
     (UserPublic _ _ _ True _) -> do
       ServerCategory.hCreateCategory (handleCategory h) mc c
@@ -81,7 +79,7 @@ handleCategoryGet h = ServerCategory.hGetCategory (handleCategory h)
 handleCategoryChange ::
   Monad m =>
   Handle m ->
-  UserPublic -> -- Logined
+  UserPublic ->
   Category ->
   Maybe Category ->
   Maybe Category ->
@@ -95,7 +93,7 @@ handleCategoryChange h userpublic cname croot cnewname = do
       ServerAuthorization.hAdminCheckFail (handleAuthorization h)
       ServerCategory.hGetCategory (handleCategory h)
 
-handleCreateNewsNew :: Monad m => Handle m -> UserPublic {- Logined -} -> NewsCreate -> m (Maybe News)
+handleCreateNewsNew :: Monad m => Handle m -> UserPublic -> NewsCreate -> m (Maybe News)
 handleCreateNewsNew h userpublic nc = do
   case userpublic of
     (UserPublic name login _ _ True) -> do
@@ -114,7 +112,7 @@ handleServerEditNews ::
   Maybe Category ->
   Maybe FlagPublished ->
   Vector Photo ->
-  Vector Base64 -> -- ByteString
+  Vector Base64 ->
   m (Maybe News)
 handleServerEditNews h userpublic nameN mContent' mNameNews mCategory' mFlagP vPh vB64 = do
   case userpublic of

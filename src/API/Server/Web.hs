@@ -1,9 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 
--- {-# LANGUAGE DeriveGeneric #-}
--- {-# LANGUAGE OverloadedStrings #-}
-
 module API.Server.Web
   ( basicAuthDataToLogined,
     loginedToBasicAuthData,
@@ -22,14 +19,7 @@ module API.Server.Web
   )
 where
 
--- import GHC.Generics
-
 import Data.News
--- import Data.Text
-
--- import Data.ByteString
--- import Data.Vector
-
 import Data.Proxy
 import Data.Text.Encoding
 import Data.Types
@@ -37,13 +27,11 @@ import Data.User
 import Servant.API
 import Servant.Client
 
--- import Data.Time.Calendar.OrdinalDate
-
 basicAuthDataToLogined :: BasicAuthData -> Logined
 basicAuthDataToLogined bad =
   Logined
-    { loginLogined = decodeUtf8 $ basicAuthUsername bad, -- decodeLatin1 $ basicAuthUsername bad -- decodeUtf8Lenient $ basicAuthUsername bad
-      passwordLogined = decodeUtf8 $ basicAuthPassword bad -- decodeLatin1 $ basicAuthPassword bad -- decodeUtf8Lenient $ basicAuthPassword bad
+    { loginLogined = decodeUtf8 $ basicAuthUsername bad,
+      passwordLogined = decodeUtf8 $ basicAuthPassword bad
     }
 
 loginedToBasicAuthData :: Logined -> BasicAuthData
@@ -134,8 +122,6 @@ type API =
       :> Get '[JSON] [UserPublic]
     :<|> "photo" :> "get" :> QueryParam "name_photo" Photo :> Get '[JSON] Base64 -- ByteString
 
--- :<|> "autorization" :> QueryParams "login" :> QueryParams "password" :> Get '[JSON] UserPublic
-
 api :: Proxy API
 api = Proxy
 
@@ -148,7 +134,6 @@ getNewsPublic ::
   Maybe NewsName ->
   Maybe Content ->
   Maybe ForString ->
-  -- -> [FlagPublished]
   Maybe SortBy ->
   Maybe OffSet ->
   Maybe Limit ->
@@ -158,7 +143,6 @@ getNewsPrivate ::
   Maybe DayAt ->
   Maybe DayUntil ->
   Maybe DaySince ->
-  -- -> Maybe Name
   Maybe Category ->
   Maybe NewsName ->
   Maybe Content ->
@@ -171,16 +155,16 @@ getNewsPrivate ::
 categoryCreate :: BasicAuthData -> Maybe Category -> Maybe Category -> ClientM NewsCategory
 categoryGetTree :: ClientM NewsCategory
 categoryChange :: BasicAuthData -> Maybe Category -> Maybe Category -> Maybe Category -> ClientM NewsCategory
-createNewsNew :: BasicAuthData -> NewsCreate {- > [ByteString]-} -> ClientM News
+createNewsNew :: BasicAuthData -> NewsCreate -> ClientM News
 createNewsEdit ::
   BasicAuthData ->
-  Maybe NameNews -> -- old
+  Maybe NameNews ->
   Maybe Content ->
-  Maybe NameNews -> -- new
+  Maybe NameNews ->
   Maybe Content ->
   Maybe FlagPublished ->
   [Photo] ->
-  [Base64] -> -- ByteString
+  [Base64] ->
   ClientM News
 userCreate ::
   BasicAuthData ->
@@ -191,5 +175,5 @@ userCreate ::
   Maybe FlagAdmin ->
   ClientM UserPublic
 userList :: Maybe OffSet -> Maybe Limit -> ClientM [UserPublic]
-photoGet :: Maybe Photo -> ClientM Base64 -- ByteString
+photoGet :: Maybe Photo -> ClientM Base64
 getNewsPublic :<|> getNewsPrivate :<|> categoryCreate :<|> categoryGetTree :<|> categoryChange :<|> createNewsNew :<|> createNewsEdit :<|> userCreate :<|> userList :<|> photoGet = client api

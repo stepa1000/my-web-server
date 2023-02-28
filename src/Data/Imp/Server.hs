@@ -4,8 +4,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wwarn #-}
 
--- -Wdefault
-
 module Data.Imp.Server
   ( Config (..),
     server,
@@ -13,21 +11,9 @@ module Data.Imp.Server
   )
 where
 
--- import Network.HTTP.Client.TLS
-
--- import Database.Beam.Postgres.Conduit as BPC
--- import Conduit
-
--- import qualified Control.Server.News as ServerNews
--- import qualified Control.Server.Category as ServerCategory
-
--- import qualified Control.Server.Photo as ServerPhoto
-
 import API.Server.Web
 import Control.Logger ((.<))
 import qualified Control.Logger as Logger
--- import Network.Wai.Handler.WarpTLS as Warp
-
 import Control.Monad
 import Control.Monad.Error.Class
 import qualified Control.Server as Server
@@ -59,11 +45,6 @@ data Config = Config
   }
   deriving (Generic, ToJSON, FromJSON)
 
-{-
-newtype ConnectionInfo = ConnectionInfo
-  { unConnectionInfo :: ConnectInfo}
-  deriving (Generic,ToJSON,FromJSON)
--}
 instance ToJSON ConnectInfo
 
 instance FromJSON ConnectInfo
@@ -72,18 +53,14 @@ server :: IO () -> Config -> IO ()
 server shutdown config = do
   withHandle config $ \sh -> do
     let app = serveWithContext api (serverContext sh) (serverT sh)
-    -- Warp.runTLS defaultTlsSettings (setting shutdown) app
     _ <- ServerAuthorization.handleCreatInitAdmin (Server.handleAuthorization sh) "tempAdmin" "temp" False
     Warp.runSettings (setting shutdown) app
     return ()
-
---  where
 
 serverTest :: IO () -> Config -> ((IO (), Connection) -> IO ()) -> IO ()
 serverTest shutdown config g = do
   withHandleTest config $ \(sh, c) -> do
     let app = serveWithContext api (serverContext sh) (serverT sh)
-    -- Warp.runTLS defaultTlsSettings (setting shutdown) app
     mu <- ServerAuthorization.handleCreatInitAdmin (Server.handleAuthorization sh) "tempAdmin" "temp" False
     Logger.logDebug (Server.handleLogger sh) $ "create temp admin: " .< mu
     g (Warp.runSettings (setting shutdown) app, c)
@@ -141,7 +118,6 @@ getNewsPrivateS ::
   Maybe DayAt ->
   Maybe DayUntil ->
   Maybe DaySince ->
-  -- -> Maybe Name
   Maybe Category ->
   Maybe NewsName ->
   Maybe Content ->
@@ -158,7 +134,6 @@ getNewsPrivateS sh bad mDayAt' mDayUntil' mDaySince' mCategory' mNewsNam' mConte
       (Just bad)
       (Search mDayAt' mDayUntil' mDaySince' (Just $ nameUser bad) mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit')
 
--- mAothor'
 categoryCreateS ::
   MonadIO m =>
   Server.Handle IO ->

@@ -35,7 +35,7 @@ handleEditNews ::
   Maybe Category ->
   Maybe FlagPublished ->
   Vector Photo ->
-  Vector Base64 -> -- ByteString
+  Vector Base64 ->
   m (Maybe News)
 handleEditNews h login nameN content newNameNews category flagP vP vB64 = do
   vnpic <- P.mapM (Photo.hPutPhoto (handlePhoto h)) vB64

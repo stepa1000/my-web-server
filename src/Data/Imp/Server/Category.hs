@@ -1,7 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
--- {-# LANGUAGE DeriveGeneric #-}
--- {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -64,7 +62,7 @@ hChangeCategory hl rnc c Nothing (Just nnc) = do
   modifyIORef rnc (\nc -> renameNode nc c nnc)
 hChangeCategory hl _ _ Nothing Nothing = do
   Logger.logInfo hl "Change category: Nothing"
-  return () -- loging the
+  return ()
 
 -- | adds categories under category
 hCreateCategory :: Logger.Handle IO -> IORef NewsCategory -> Category -> Category -> IO ()

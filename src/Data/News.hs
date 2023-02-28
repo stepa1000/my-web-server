@@ -16,13 +16,11 @@ import Data.Types
 import Data.Vector as V
 import GHC.Generics
 
--- type PhotoURL = Text
-
 data News = News
   { nameNews :: NameNews,
     loginAuthor :: Login,
     nameAuthor :: Name,
-    dateCreationNews :: Day, -- UTCTime
+    dateCreationNews :: Day,
     categoryNews :: Category,
     textNews :: Content,
     photoNews :: Vector Photo,

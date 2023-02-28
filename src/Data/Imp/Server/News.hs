@@ -10,12 +10,11 @@
 module Data.Imp.Server.News
   ( Config (..),
     makeHandle,
-    NewsT (..), -- ????
+    NewsT (..),
     NewsDB (..),
     newsDB,
-    --  , hSearchNewsName -- !!!!!!!!
-    hSearchContent, -- !!!!!!
-    debugPosition, -- !!!!
+    hSearchContent,
+    debugPosition,
   )
 where
 
@@ -311,7 +310,7 @@ nameNewsT nn =
       _newsDateCreation = undefined,
       _newsCategory = undefined,
       _newsContent = undefined,
-      _newsPhoto = undefined, -- PhotoVector-- [Photo] -- (Vector Photo)
+      _newsPhoto = undefined,
       _newsPublic = undefined
     }
 
@@ -322,7 +321,7 @@ data NewsT f = NewsT
     _newsDateCreation :: Columnar f Day,
     _newsCategory :: Columnar f Category,
     _newsContent :: Columnar f Content,
-    _newsPhoto :: Columnar f ByteString, -- PhotoVector-- [Photo] -- (Vector Photo)
+    _newsPhoto :: Columnar f ByteString,
     _newsPublic :: Columnar f FlagPublished
   }
   deriving (Generic, Beamable)

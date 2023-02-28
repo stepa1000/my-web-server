@@ -35,7 +35,7 @@ import Data.Tree
 import GHC.Generics
 import Servant.API
 
-type NewsCategory = Tree Category -- Text
+type NewsCategory = Tree Category -- is Tree Text
 
 type OffSet = Int
 
@@ -47,7 +47,7 @@ type DayUntil = Day
 
 type DaySince = Day
 
-type Login = Text -- ByteString
+type Login = Text
 
 type Category = Text
 
@@ -57,10 +57,9 @@ type Content = Text
 
 type Name = Text
 
--- type Authot = Text
 type NameNews = Text
 
-type Password = Text -- ByteString
+type Password = Text
 
 type Photo = Text
 
