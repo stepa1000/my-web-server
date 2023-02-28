@@ -1,36 +1,35 @@
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Control.Server.Authorization
-  ( Handle(..)
-  , ErrorAuthorization(..)
-  , handleWithAccount
-  , handleCheckAccountStrong
-  , handleCheckAccount
-  , handleCatchErrorAuthorization
-  , handleCreatInitAdmin
-  ) where
-
-import Prelude as P
+  ( Handle (..),
+    ErrorAuthorization (..),
+    handleWithAccount,
+    handleCheckAccountStrong,
+    handleCheckAccount,
+    handleCatchErrorAuthorization,
+    handleCreatInitAdmin,
+  )
+where
 
 import Control.Monad.Catch
 import Data.Typeable
-
-import Data.User
 import Data.Types
+import Data.User
+import Prelude as P
 
-data Handle m = Handle 
-  { hCreateUser :: Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> m UserPublic
-  , hUserList :: OffSet -> Limit -> m [UserPublic]
-  , hCheckAccount :: Login -> Password -> m (Maybe UserPublic)
-  , hGetAccount :: Login -> m (Maybe UserPublic)
-  , hAuthorizationFail :: m ()
-  , hAdminCheckFail :: m ()
-  , hCreatorNewsCheckFail :: m ()
-  , hCatchErrorAuthorization :: forall a. m a -> (ErrorAuthorization -> m a) -> m a
+data Handle m = Handle
+  { hCreateUser :: Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> m UserPublic,
+    hUserList :: OffSet -> Limit -> m [UserPublic],
+    hCheckAccount :: Login -> Password -> m (Maybe UserPublic),
+    hGetAccount :: Login -> m (Maybe UserPublic),
+    hAuthorizationFail :: m (),
+    hAdminCheckFail :: m (),
+    hCreatorNewsCheckFail :: m (),
+    hCatchErrorAuthorization :: forall a. m a -> (ErrorAuthorization -> m a) -> m a
   }
 
-data ErrorAuthorization 
+data ErrorAuthorization
   = ErrorAuthorization
   | ErrorAdminCheck
   | ErrorCreatorNewsCheck
@@ -66,7 +65,8 @@ handleCheckAccountStrong h l = do
       return Nothing
 
 handleCheckAccount :: Handle m -> Logined -> m (Maybe UserPublic)
-handleCheckAccount h logined 
-  = hCheckAccount h 
-    (loginLogined logined) 
-    (passwordLogined logined )
+handleCheckAccount h logined =
+  hCheckAccount
+    h
+    (loginLogined logined)
+    (passwordLogined logined)

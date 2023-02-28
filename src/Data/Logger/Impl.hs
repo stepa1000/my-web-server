@@ -1,7 +1,7 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | The default implementation of the Logger interface.
 module Data.Logger.Impl
@@ -9,25 +9,23 @@ module Data.Logger.Impl
     Config (..),
     liftHandleBaseIO,
     withPreConf,
-    PreConfig(..)
+    PreConfig (..),
   )
 where
 
-import GHC.Generics
-
+import qualified Control.Logger as Logger
 import Control.Monad.Base
-
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import qualified Control.Logger as Logger
+import Data.Yaml
+import GHC.Generics
 import qualified System.IO as SIO
 
-import Data.Yaml
-
 data PreConfig = PreConfig
-  { preconfFilePath :: String
-  , preconfMinLevel :: Logger.Level
-  } deriving (Generic,FromJSON,ToJSON)
+  { preconfFilePath :: String,
+    preconfMinLevel :: Logger.Level
+  }
+  deriving (Generic, FromJSON, ToJSON)
 
 withPreConf :: PreConfig -> (Logger.Handle IO -> IO a) -> IO a
 withPreConf pc g = do
@@ -36,10 +34,12 @@ withPreConf pc g = do
 withPreConf' :: PreConfig -> (Config -> IO a) -> IO a
 withPreConf' pc g = do
   h <- SIO.openFile (preconfFilePath pc) SIO.WriteMode
-  a <- g $ Config
-    { confFileHandle = h
-    , confMinLevel = preconfMinLevel pc
-    }
+  a <-
+    g $
+      Config
+        { confFileHandle = h,
+          confMinLevel = preconfMinLevel pc
+        }
   SIO.hClose h
   return a
 
@@ -54,9 +54,11 @@ data Config = Config
     confMinLevel :: Logger.Level
   }
 
-liftHandleBaseIO :: MonadBase IO m
-                 => Logger.Handle IO -> Logger.Handle m
-liftHandleBaseIO h = Logger.Handle {Logger.hLowLevelLog = \l t -> liftBase $ Logger.hLowLevelLog h l t } 
+liftHandleBaseIO ::
+  MonadBase IO m =>
+  Logger.Handle IO ->
+  Logger.Handle m
+liftHandleBaseIO h = Logger.Handle {Logger.hLowLevelLog = \l t -> liftBase $ Logger.hLowLevelLog h l t}
 
 withHandle :: Config -> (Logger.Handle IO -> IO a) -> IO a
 withHandle config f = do
@@ -69,4 +71,3 @@ logWith conf logLvl t | logLvl >= confMinLevel conf = do
   T.hPutStrLn (confFileHandle conf) $ T.pack (show logLvl ++ ": ") `T.append` t
   SIO.hFlush (confFileHandle conf)
 logWith _ _ _ = return ()
-

@@ -1,32 +1,34 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE TypeFamilies#-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Data.User
-  ( UserPublic(..)
-  , User (..)
-  ) where
+  ( UserPublic (..),
+    User (..),
+  )
+where
 
+-- import Data.Text
+
+-- Clock
+import Data.Aeson
+import qualified Data.ByteString as B
+import Data.Time.Calendar.OrdinalDate
+import Data.Types
 import GHC.Generics
 
---import Data.Text
-import qualified Data.ByteString as B
-import Data.Time.Calendar.OrdinalDate -- Clock
-import Data.Aeson
-
-import Data.Types
-
 data UserPublic = UserPublic
-  { nameUser :: Name
-  , loginUser :: Login
-  -- , passwordHashUser :: B.ByteString
-  , dateCreationUser :: Day -- UTCTime
-  , adminUser :: FlagAdmin
-  , makeNewsUser :: FlagMakeNews
-  } deriving (Generic,ToJSON,FromJSON,Eq,Show)
+  { nameUser :: Name,
+    loginUser :: Login,
+    -- , passwordHashUser :: B.ByteString
+    dateCreationUser :: Day, -- UTCTime
+    adminUser :: FlagAdmin,
+    makeNewsUser :: FlagMakeNews
+  }
+  deriving (Generic, ToJSON, FromJSON, Eq, Show)
 
 data User = User
-  { user :: UserPublic
-  , passwordHashUser :: B.ByteString
-  } deriving Generic
-
+  { user :: UserPublic,
+    passwordHashUser :: B.ByteString
+  }
+  deriving (Generic)

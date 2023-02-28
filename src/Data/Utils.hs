@@ -1,22 +1,20 @@
-{-# LANGUAGE TypeFamilies #-}
 -- {-# LANGUAGE DeriveGeneric #-}
 -- {-# LANGUAGE DeriveAnyClass #-}
 -- {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Data.Utils
-  ( listStreamingRunSelect
-  ) where
+  ( listStreamingRunSelect,
+  )
+where
 
-import Prelude as P
-
+import Conduit
 import Database.Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
-import Conduit
+import Prelude as P
 
-listStreamingRunSelect :: FromBackendRow Postgres a => Connection -> SqlSelect Postgres a -> IO [a] 
-listStreamingRunSelect c sqls = 
+listStreamingRunSelect :: FromBackendRow Postgres a => Connection -> SqlSelect Postgres a -> IO [a]
+listStreamingRunSelect c sqls =
   runConduitRes $ streamingRunSelect c sqls .| sinkList
-
-
