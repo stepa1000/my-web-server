@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
@@ -35,13 +36,13 @@ import Data.Yaml
 import Database.Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
-import GHC.Generics
 import Prelude as P
 
 newtype Config = Config
   { confLimit :: Int
   }
-  deriving (Show, Generic, ToJSON, FromJSON)
+  deriving (Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 makeHandle :: Logger.Handle IO -> Config -> Connection -> ServerAuthorization.Handle IO
 makeHandle hl config c =
@@ -202,7 +203,8 @@ instance Table UserT where
 
 newtype AccountDB f = AccountDB
   {_accounts :: f (TableEntity UserT)}
-  deriving (Generic, Database be)
+  deriving (Generic)
+  deriving anyclass (Database be)
 
 accountDB :: DatabaseSettings be AccountDB
 accountDB = defaultDbSettings

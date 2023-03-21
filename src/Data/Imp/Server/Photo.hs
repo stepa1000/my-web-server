@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
@@ -20,7 +21,6 @@ import Data.Utils
 import Database.Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
-import GHC.Generics
 import System.Random
 import Prelude as P
 
@@ -80,7 +80,8 @@ instance Table PhotoT where
 newtype PhotoDB f = PhotoDB
   { _photos :: f (TableEntity PhotoT)
   }
-  deriving (Generic, Database be)
+  deriving (Generic)
+  deriving anyclass (Database be)
 
 photoDB :: DatabaseSettings be PhotoDB
 photoDB = defaultDbSettings
