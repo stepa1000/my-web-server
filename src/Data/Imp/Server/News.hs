@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
@@ -104,43 +105,7 @@ sortNews Nothing = id
 
 --
 filterSearch ::
-  ( Columnar f NameNews
-      ~ QGenExpr
-          QValueContext
-          Postgres
-          ( QNested
-              (QNested QBaseScope)
-          )
-          Content,
-    HaskellLiteralForQExpr (Columnar f Day) ~ Day,
-    HaskellLiteralForQExpr (Columnar f FlagPublished) ~ Bool,
-    SqlOrd
-      ( QGenExpr
-          QValueContext
-          Postgres
-          (QNested (QNested QBaseScope))
-      )
-      (Columnar f Day),
-    SqlEq
-      (QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)))
-      ( Columnar
-          f
-          Day
-      ),
-    SqlEq
-      ( QGenExpr
-          QValueContext
-          Postgres
-          ( QNested
-              ( QNested
-                  QBaseScope
-              )
-          )
-      )
-      (Columnar f FlagPublished),
-    SqlValable (Columnar f Day),
-    SqlValable (Columnar f FlagPublished)
-  ) =>
+  CxtFilterSearch f =>
   Search ->
   NewsT f ->
   QGenExpr
@@ -416,3 +381,44 @@ newtype NewsDB f = NewsDB
 
 newsDB :: DatabaseSettings be NewsDB
 newsDB = defaultDbSettings
+
+-- Cxt
+
+type CxtFilterSearch f =
+  ( Columnar f NameNews
+      ~ QGenExpr
+          QValueContext
+          Postgres
+          ( QNested
+              (QNested QBaseScope)
+          )
+          Content,
+    HaskellLiteralForQExpr (Columnar f Day) ~ Day,
+    HaskellLiteralForQExpr (Columnar f FlagPublished) ~ Bool,
+    SqlOrd
+      ( QGenExpr
+          QValueContext
+          Postgres
+          (QNested (QNested QBaseScope))
+      )
+      (Columnar f Day),
+    SqlEq
+      (QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)))
+      ( Columnar
+          f
+          Day
+      ),
+    SqlEq
+      ( QGenExpr
+          QValueContext
+          Postgres
+          ( QNested
+              ( QNested
+                  QBaseScope
+              )
+          )
+      )
+      (Columnar f FlagPublished),
+    SqlValable (Columnar f Day),
+    SqlValable (Columnar f FlagPublished)
+  )
