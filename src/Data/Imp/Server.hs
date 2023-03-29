@@ -1,7 +1,9 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wwarn #-}
 
 module Data.Imp.Server
@@ -43,7 +45,8 @@ data Config = Config
     confConnectionInfo :: ConnectInfo,
     confLogger :: ImpLogger.PreConfig
   }
-  deriving (Generic, ToJSON, FromJSON)
+  deriving (Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance ToJSON ConnectInfo
 
@@ -78,6 +81,83 @@ serverContext ::
   Context '[BasicAuthCheck UserPublic]
 serverContext sh = authcheck sh :. EmptyContext
 
+serverT ::
+  (MonadIO m1, MonadIO m2, MonadIO m3, MonadIO m4) =>
+  Server.Handle IO ->
+  ( Maybe DayAt ->
+    Maybe DayUntil ->
+    Maybe DaySince ->
+    Maybe Name ->
+    Maybe Category ->
+    Maybe NewsName ->
+    Maybe Content ->
+    Maybe ForString ->
+    Maybe SortBy ->
+    Maybe OffSet ->
+    Maybe Limit ->
+    m1 [News]
+  )
+    :<|> ( ( UserPublic ->
+             Maybe DayAt ->
+             Maybe DayUntil ->
+             Maybe DaySince ->
+             Maybe Category ->
+             Maybe NewsName ->
+             Maybe Content ->
+             Maybe ForString ->
+             Maybe FlagPublished ->
+             Maybe SortBy ->
+             Maybe OffSet ->
+             Maybe Limit ->
+             Servant.Handler [News]
+           )
+             :<|> ( ( UserPublic ->
+                      Maybe Category ->
+                      Maybe Category ->
+                      m2 NewsCategory
+                    )
+                      :<|> ( m3 NewsCategory
+                               :<|> ( ( UserPublic ->
+                                        Maybe Category ->
+                                        Maybe Category ->
+                                        Maybe Category ->
+                                        Servant.Handler NewsCategory
+                                      )
+                                        :<|> ( (UserPublic -> NewsCreate -> Servant.Handler News)
+                                                 :<|> ( ( UserPublic ->
+                                                          Maybe NameNews ->
+                                                          Maybe Content ->
+                                                          Maybe NameNews ->
+                                                          Maybe Category ->
+                                                          Maybe FlagPublished ->
+                                                          [Photo] ->
+                                                          [Base64] ->
+                                                          Servant.Handler News
+                                                        )
+                                                          :<|> ( ( UserPublic ->
+                                                                   Maybe Name ->
+                                                                   Maybe Login ->
+                                                                   Maybe Password ->
+                                                                   Maybe FlagMakeNews ->
+                                                                   Maybe FlagAdmin ->
+                                                                   Servant.Handler UserPublic
+                                                                 )
+                                                                   :<|> ( ( Maybe OffSet ->
+                                                                            Maybe Limit ->
+                                                                            m4 [UserPublic]
+                                                                          )
+                                                                            :<|> ( Maybe Photo ->
+                                                                                   Servant.Handler
+                                                                                     Base64
+                                                                                 )
+                                                                        )
+                                                               )
+                                                      )
+                                             )
+                                    )
+                           )
+                  )
+         )
 serverT sh =
   getNewsPublicS sh
     :<|> getNewsPrivateS sh

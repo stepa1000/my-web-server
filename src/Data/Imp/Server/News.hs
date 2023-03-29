@@ -1,11 +1,11 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# OPTIONS_GHC -Wwarn #-}
 
 module Data.Imp.Server.News
   ( Config (..),
@@ -28,6 +28,7 @@ import Data.List (sortBy)
 import Data.Maybe as Maybe
 import Data.News
 import Data.String
+import Data.Text.Internal
 import Data.Time.Calendar.OrdinalDate
 import Data.Time.Clock
 import Data.Types
@@ -38,12 +39,12 @@ import Database.Beam as Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
 import Database.Beam.Query.Internal
-import GHC.Generics
 import Prelude as P
 
 newtype Config = Config
   {confMaxLimit :: Integer}
-  deriving (Generic, Y.ToJSON, Y.FromJSON)
+  deriving (Generic)
+  deriving anyclass (Y.ToJSON, Y.FromJSON)
 
 makeHandle :: Logger.Handle IO -> Config -> Connection -> SNews.Handle IO
 makeHandle hl conf c =
@@ -101,6 +102,56 @@ sortNews (Just SBCategory) = sortBy (\a b -> compare (categoryNews a) (categoryN
 sortNews (Just SBCountPhoto) = sortBy (\a b -> compare (V.length $ photoNews a) (V.length $ photoNews b))
 sortNews Nothing = id
 
+--
+filterSearch ::
+  ( Columnar f NameNews
+      ~ QGenExpr
+          QValueContext
+          Postgres
+          ( QNested
+              (QNested QBaseScope)
+          )
+          Content,
+    HaskellLiteralForQExpr (Columnar f Day) ~ Day,
+    HaskellLiteralForQExpr (Columnar f FlagPublished) ~ Bool,
+    SqlOrd
+      ( QGenExpr
+          QValueContext
+          Postgres
+          (QNested (QNested QBaseScope))
+      )
+      (Columnar f Day),
+    SqlEq
+      (QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)))
+      ( Columnar
+          f
+          Day
+      ),
+    SqlEq
+      ( QGenExpr
+          QValueContext
+          Postgres
+          ( QNested
+              ( QNested
+                  QBaseScope
+              )
+          )
+      )
+      (Columnar f FlagPublished),
+    SqlValable (Columnar f Day),
+    SqlValable (Columnar f FlagPublished)
+  ) =>
+  Search ->
+  NewsT f ->
+  QGenExpr
+    QValueContext
+    Postgres
+    ( QNested
+        ( QNested
+            QBaseScope
+        )
+    )
+    Bool
 filterSearch (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' _ _ _) n =
   filterDaySince mDaySince' n
     &&. filterDayAt mDayAt' n
@@ -119,21 +170,50 @@ filterSearch (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsNam'
         ||. filterForStringCategory fs n
     f Nothing = val_ True
 
+filterForStringContent ::
+  (Columnar f Content ~ QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content) =>
+  Data.Text.Internal.Text ->
+  NewsT f ->
+  QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Bool
 filterForStringContent fs n = positionQNested (val_ fs) (_newsContent n) /=. val_ 0
 
+filterForStringName ::
+  (Columnar f NameNews ~ QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content) =>
+  Text ->
+  NewsT f ->
+  QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Bool
 filterForStringName s n = positionQNested (val_ s) (_newsNewsName n) /=. val_ 0
 
+filerForStringAuthor ::
+  (Columnar f Name ~ QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content) =>
+  Text ->
+  NewsT f ->
+  QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Bool
 filerForStringAuthor s n = positionQNested (val_ s) (_newsNameAuthor n) /=. val_ 0
 
+filterForStringCategory ::
+  (Columnar f Category ~ QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content) =>
+  Text ->
+  NewsT f ->
+  QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Bool
 filterForStringCategory s n = positionQNested (val_ s) (_newsCategory n) /=. val_ 0
 
+filterContent ::
+  (Columnar f Content ~ QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content) =>
+  Maybe Text ->
+  NewsT f ->
+  QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Bool
 filterContent (Just c) n = positionQNested (val_ c) (_newsContent n) /=. val_ 0
 filterContent Nothing _ = val_ True
 
+filterContent' ::
+  (Columnar f Content ~ QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content) =>
+  Maybe Text ->
+  NewsT f ->
+  QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) SqlBool
 filterContent' (Just c) n = positionQNested (val_ c) (_newsContent n) /=?. val_ 0
 filterContent' Nothing _ = sqlBool_ $ val_ True
 
--- filterFlagPublished :: Maybe FlagPublished -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
 filterFlagPublished ::
   ( HaskellLiteralForQExpr (expr Bool) ~ Bool,
     SqlEq expr (Columnar f FlagPublished),
@@ -146,7 +226,6 @@ filterFlagPublished ::
 filterFlagPublished (Just fp) n = _newsPublic n ==. val_ fp
 filterFlagPublished Nothing _ = val_ True
 
--- filterNewsName :: Maybe NewsName -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
 filterNewsName ::
   ( HaskellLiteralForQExpr (expr Bool) ~ Bool,
     SqlEq expr (Columnar f NameNews),
@@ -159,7 +238,6 @@ filterNewsName ::
 filterNewsName (Just nn) n = _newsNewsName n ==. val_ nn
 filterNewsName Nothing _ = val_ True
 
--- filterCategory :: Maybe Category -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
 filterCategory ::
   ( HaskellLiteralForQExpr (expr Bool) ~ Bool,
     SqlEq expr (Columnar f Category),
@@ -172,7 +250,6 @@ filterCategory ::
 filterCategory (Just c) n = _newsCategory n ==. val_ c
 filterCategory Nothing _ = val_ True
 
--- filterAuthor :: Maybe Name -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
 filterAuthor ::
   ( HaskellLiteralForQExpr (expr Bool) ~ Bool,
     SqlEq expr (Columnar f Name),
@@ -185,7 +262,6 @@ filterAuthor ::
 filterAuthor (Just a) n = _newsNameAuthor n ==. val_ a
 filterAuthor Nothing _ = val_ True
 
--- filterDaySince :: Maybe DaySince -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
 filterDaySince ::
   ( HaskellLiteralForQExpr (expr Bool) ~ Bool,
     SqlEq expr (Columnar f Day),
@@ -198,7 +274,6 @@ filterDaySince ::
 filterDaySince (Just ds) n = _newsDateCreation n ==. val_ ds
 filterDaySince Nothing _ = val_ True
 
--- filterDayAt :: Maybe DayAt -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
 filterDayAt ::
   ( HaskellLiteralForQExpr (expr Bool) ~ Bool,
     SqlOrd expr (Columnar f Day),
@@ -211,7 +286,6 @@ filterDayAt ::
 filterDayAt (Just dat) n = _newsDateCreation n >=. val_ dat
 filterDayAt Nothing _ = val_ True
 
--- filterDayUntil :: Maybe DayUntil -> NewsT (QExpr Postgres QBaseScope) -> QExpr Postgres QBaseScope Bool
 filterDayUntil ::
   ( HaskellLiteralForQExpr (expr Bool) ~ Bool,
     SqlOrd expr (Columnar f Day),
@@ -337,7 +411,8 @@ instance Table NewsT where
 
 newtype NewsDB f = NewsDB
   {_news :: f (TableEntity NewsT)}
-  deriving (Generic, Database be)
+  deriving (Generic)
+  deriving anyclass (Database be)
 
 newsDB :: DatabaseSettings be NewsDB
 newsDB = defaultDbSettings
