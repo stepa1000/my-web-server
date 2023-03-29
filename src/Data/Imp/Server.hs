@@ -4,7 +4,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators #-}
-{-# OPTIONS_GHC -Wwarn #-}
 
 module Data.Imp.Server
   ( Config (..),
@@ -24,13 +23,13 @@ import Data.ByteString as B
 import qualified Data.Imp.Server.Authorization as Authorization
 import qualified Data.Imp.Server.Category as Category
 import qualified Data.Imp.Server.News as News
+import Data.Instance
 import qualified Data.Logger.Impl as ImpLogger
 import Data.Maybe
 import Data.News
 import Data.Types
 import Data.User
 import Data.Vector as V
-import Data.Yaml
 import Database.Beam
 import Database.Beam.Postgres as Beam
 import Network.Wai.Handler.Warp as Warp
@@ -47,10 +46,6 @@ data Config = Config
   }
   deriving (Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-instance ToJSON ConnectInfo
-
-instance FromJSON ConnectInfo
 
 server :: IO () -> Config -> IO ()
 server shutdown config = do
