@@ -83,43 +83,22 @@ serverT ::
     :<|> ( ( UserPublic -> GetNewsPrivate Servant.Handler
            )
              :<|> ( ( UserPublic ->
-                      Maybe Category ->
-                      Maybe Category ->
-                      m2 NewsCategory
+                      CategoryCreate m2
                     )
-                      :<|> ( m3 NewsCategory
+                      :<|> ( CategoryGetTree m3
                                :<|> ( ( UserPublic ->
-                                        Maybe Category ->
-                                        Maybe Category ->
-                                        Maybe Category ->
-                                        Servant.Handler NewsCategory
+                                        CategoryChange Servant.Handler
                                       )
-                                        :<|> ( (UserPublic -> NewsCreate -> Servant.Handler News)
+                                        :<|> ( (UserPublic -> CreateNewsNew Servant.Handler)
                                                  :<|> ( ( UserPublic ->
-                                                          Maybe NameNews ->
-                                                          Maybe Content ->
-                                                          Maybe NameNews ->
-                                                          Maybe Category ->
-                                                          Maybe FlagPublished ->
-                                                          [Photo] ->
-                                                          [Base64] ->
-                                                          Servant.Handler News
+                                                          CreateNewsEdit Servant.Handler
                                                         )
                                                           :<|> ( ( UserPublic ->
-                                                                   Maybe Name ->
-                                                                   Maybe Login ->
-                                                                   Maybe Password ->
-                                                                   Maybe FlagMakeNews ->
-                                                                   Maybe FlagAdmin ->
-                                                                   Servant.Handler UserPublic
+                                                                   UserCreate Servant.Handler
                                                                  )
-                                                                   :<|> ( ( Maybe OffSet ->
-                                                                            Maybe Limit ->
-                                                                            m4 [UserPublic]
+                                                                   :<|> ( ( UserList m4
                                                                           )
-                                                                            :<|> ( Maybe Photo ->
-                                                                                   Servant.Handler
-                                                                                     Base64
+                                                                            :<|> ( PhotoGet Servant.Handler
                                                                                  )
                                                                         )
                                                                )

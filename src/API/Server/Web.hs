@@ -18,6 +18,14 @@ module API.Server.Web
     photoGet,
     GetNewsPublic,
     GetNewsPrivate,
+    CategoryCreate,
+    CategoryChange,
+    CreateNewsEdit,
+    UserCreate,
+    UserList,
+    CategoryGetTree,
+    CreateNewsNew,
+    PhotoGet,
   )
 where
 
@@ -155,17 +163,15 @@ type GetNewsPrivate m =
   Maybe Limit ->
   m [News]
 
-getNewsPublic ::
-  GetNewsPublic ClientM
-getNewsPrivate ::
-  BasicAuthData ->
-  GetNewsPrivate ClientM
-categoryCreate :: BasicAuthData -> Maybe Category -> Maybe Category -> ClientM NewsCategory
-categoryGetTree :: ClientM NewsCategory
-categoryChange :: BasicAuthData -> Maybe Category -> Maybe Category -> Maybe Category -> ClientM NewsCategory
-createNewsNew :: BasicAuthData -> NewsCreate -> ClientM News
-createNewsEdit ::
-  BasicAuthData ->
+type CategoryCreate m = Maybe Category -> Maybe Category -> m NewsCategory
+
+type CategoryGetTree m = m NewsCategory
+
+type CategoryChange m = Maybe Category -> Maybe Category -> Maybe Category -> m NewsCategory
+
+type CreateNewsNew m = NewsCreate -> m News
+
+type CreateNewsEdit m =
   Maybe NameNews ->
   Maybe Content ->
   Maybe NameNews ->
@@ -173,15 +179,35 @@ createNewsEdit ::
   Maybe FlagPublished ->
   [Photo] ->
   [Base64] ->
-  ClientM News
-userCreate ::
-  BasicAuthData ->
+  m News
+
+type UserCreate m =
   Maybe Name ->
   Maybe Login ->
   Maybe Password ->
   Maybe FlagMakeNews ->
   Maybe FlagAdmin ->
-  ClientM UserPublic
-userList :: Maybe OffSet -> Maybe Limit -> ClientM [UserPublic]
-photoGet :: Maybe Photo -> ClientM Base64
+  m UserPublic
+
+type UserList m = Maybe OffSet -> Maybe Limit -> m [UserPublic]
+
+type PhotoGet m = Maybe Photo -> m Base64
+
+getNewsPublic ::
+  GetNewsPublic ClientM
+getNewsPrivate ::
+  BasicAuthData ->
+  GetNewsPrivate ClientM
+categoryCreate :: BasicAuthData -> CategoryCreate ClientM
+categoryGetTree :: CategoryGetTree ClientM
+categoryChange :: BasicAuthData -> CategoryChange ClientM
+createNewsNew :: BasicAuthData -> CreateNewsNew ClientM
+createNewsEdit ::
+  BasicAuthData ->
+  CreateNewsEdit ClientM
+userCreate ::
+  BasicAuthData ->
+  UserCreate ClientM
+userList :: UserList ClientM
+photoGet :: PhotoGet ClientM
 getNewsPublic :<|> getNewsPrivate :<|> categoryCreate :<|> categoryGetTree :<|> categoryChange :<|> createNewsNew :<|> createNewsEdit :<|> userCreate :<|> userList :<|> photoGet = client api
