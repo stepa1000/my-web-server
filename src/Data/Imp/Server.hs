@@ -79,32 +79,8 @@ serverContext sh = authcheck sh :. EmptyContext
 serverT ::
   (MonadIO m1, MonadIO m2, MonadIO m3, MonadIO m4) =>
   Server.Handle IO ->
-  ( Maybe DayAt ->
-    Maybe DayUntil ->
-    Maybe DaySince ->
-    Maybe Name ->
-    Maybe Category ->
-    Maybe NewsName ->
-    Maybe Content ->
-    Maybe ForString ->
-    Maybe SortBy ->
-    Maybe OffSet ->
-    Maybe Limit ->
-    m1 [News]
-  )
-    :<|> ( ( UserPublic ->
-             Maybe DayAt ->
-             Maybe DayUntil ->
-             Maybe DaySince ->
-             Maybe Category ->
-             Maybe NewsName ->
-             Maybe Content ->
-             Maybe ForString ->
-             Maybe FlagPublished ->
-             Maybe SortBy ->
-             Maybe OffSet ->
-             Maybe Limit ->
-             Servant.Handler [News]
+  GetNewsPublic m1
+    :<|> ( ( UserPublic -> GetNewsPrivate Servant.Handler
            )
              :<|> ( ( UserPublic ->
                       Maybe Category ->
@@ -168,18 +144,7 @@ serverT sh =
 getNewsPublicS ::
   MonadIO m =>
   Server.Handle IO ->
-  Maybe DayAt ->
-  Maybe DayUntil ->
-  Maybe DaySince ->
-  Maybe Name ->
-  Maybe Category ->
-  Maybe NewsName ->
-  Maybe Content ->
-  Maybe ForString ->
-  Maybe SortBy ->
-  Maybe OffSet ->
-  Maybe Limit ->
-  m [News]
+  GetNewsPublic m
 getNewsPublicS sh mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mSortBy' mOffSet' mLimit' =
   liftIO $
     Server.handleServerFind
@@ -190,18 +155,7 @@ getNewsPublicS sh mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mC
 getNewsPrivateS ::
   Server.Handle IO ->
   UserPublic ->
-  Maybe DayAt ->
-  Maybe DayUntil ->
-  Maybe DaySince ->
-  Maybe Category ->
-  Maybe NewsName ->
-  Maybe Content ->
-  Maybe ForString ->
-  Maybe FlagPublished ->
-  Maybe SortBy ->
-  Maybe OffSet ->
-  Maybe Limit ->
-  Servant.Handler [News]
+  GetNewsPrivate Servant.Handler
 getNewsPrivateS sh bad mDayAt' mDayUntil' mDaySince' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit' =
   handleErrorAuthorization sh $
     Server.handleServerFind

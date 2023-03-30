@@ -16,6 +16,8 @@ module API.Server.Web
     userCreate,
     userList,
     photoGet,
+    GetNewsPublic,
+    GetNewsPrivate,
   )
 where
 
@@ -125,7 +127,7 @@ type API =
 api :: Proxy API
 api = Proxy
 
-getNewsPublic ::
+type GetNewsPublic m =
   Maybe DayAt ->
   Maybe DayUntil ->
   Maybe DaySince ->
@@ -137,9 +139,9 @@ getNewsPublic ::
   Maybe SortBy ->
   Maybe OffSet ->
   Maybe Limit ->
-  ClientM [News]
-getNewsPrivate ::
-  BasicAuthData ->
+  m [News]
+
+type GetNewsPrivate m =
   Maybe DayAt ->
   Maybe DayUntil ->
   Maybe DaySince ->
@@ -151,7 +153,13 @@ getNewsPrivate ::
   Maybe SortBy ->
   Maybe OffSet ->
   Maybe Limit ->
-  ClientM [News]
+  m [News]
+
+getNewsPublic ::
+  GetNewsPublic ClientM
+getNewsPrivate ::
+  BasicAuthData ->
+  GetNewsPrivate ClientM
 categoryCreate :: BasicAuthData -> Maybe Category -> Maybe Category -> ClientM NewsCategory
 categoryGetTree :: ClientM NewsCategory
 categoryChange :: BasicAuthData -> Maybe Category -> Maybe Category -> Maybe Category -> ClientM NewsCategory
