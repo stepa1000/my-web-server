@@ -1,8 +1,9 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -Wwarn #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Data.Imp.Server
   ( Config (..),
@@ -22,13 +23,13 @@ import Data.ByteString as B
 import qualified Data.Imp.Server.Authorization as Authorization
 import qualified Data.Imp.Server.Category as Category
 import qualified Data.Imp.Server.News as News
+import Data.Instance
 import qualified Data.Logger.Impl as ImpLogger
 import Data.Maybe
 import Data.News
 import Data.Types
 import Data.User
 import Data.Vector as V
-import Data.Yaml
 import Database.Beam
 import Database.Beam.Postgres as Beam
 import Network.Wai.Handler.Warp as Warp
@@ -43,11 +44,8 @@ data Config = Config
     confConnectionInfo :: ConnectInfo,
     confLogger :: ImpLogger.PreConfig
   }
-  deriving (Generic, ToJSON, FromJSON)
-
-instance ToJSON ConnectInfo
-
-instance FromJSON ConnectInfo
+  deriving (Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 server :: IO () -> Config -> IO ()
 server shutdown config = do
@@ -78,6 +76,38 @@ serverContext ::
   Context '[BasicAuthCheck UserPublic]
 serverContext sh = authcheck sh :. EmptyContext
 
+serverT ::
+  (MonadIO m1, MonadIO m2, MonadIO m3, MonadIO m4) =>
+  Server.Handle IO ->
+  GetNewsPublic m1
+    :<|> ( ( UserPublic -> GetNewsPrivate Servant.Handler
+           )
+             :<|> ( ( UserPublic ->
+                      CategoryCreate m2
+                    )
+                      :<|> ( CategoryGetTree m3
+                               :<|> ( ( UserPublic ->
+                                        CategoryChange Servant.Handler
+                                      )
+                                        :<|> ( (UserPublic -> CreateNewsNew Servant.Handler)
+                                                 :<|> ( ( UserPublic ->
+                                                          CreateNewsEdit Servant.Handler
+                                                        )
+                                                          :<|> ( ( UserPublic ->
+                                                                   UserCreate Servant.Handler
+                                                                 )
+                                                                   :<|> ( ( UserList m4
+                                                                          )
+                                                                            :<|> ( PhotoGet Servant.Handler
+                                                                                 )
+                                                                        )
+                                                               )
+                                                      )
+                                             )
+                                    )
+                           )
+                  )
+         )
 serverT sh =
   getNewsPublicS sh
     :<|> getNewsPrivateS sh
@@ -93,18 +123,7 @@ serverT sh =
 getNewsPublicS ::
   MonadIO m =>
   Server.Handle IO ->
-  Maybe DayAt ->
-  Maybe DayUntil ->
-  Maybe DaySince ->
-  Maybe Name ->
-  Maybe Category ->
-  Maybe NewsName ->
-  Maybe Content ->
-  Maybe ForString ->
-  Maybe SortBy ->
-  Maybe OffSet ->
-  Maybe Limit ->
-  m [News]
+  GetNewsPublic m
 getNewsPublicS sh mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mSortBy' mOffSet' mLimit' =
   liftIO $
     Server.handleServerFind
@@ -115,18 +134,7 @@ getNewsPublicS sh mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mC
 getNewsPrivateS ::
   Server.Handle IO ->
   UserPublic ->
-  Maybe DayAt ->
-  Maybe DayUntil ->
-  Maybe DaySince ->
-  Maybe Category ->
-  Maybe NewsName ->
-  Maybe Content ->
-  Maybe ForString ->
-  Maybe FlagPublished ->
-  Maybe SortBy ->
-  Maybe OffSet ->
-  Maybe Limit ->
-  Servant.Handler [News]
+  GetNewsPrivate Servant.Handler
 getNewsPrivateS sh bad mDayAt' mDayUntil' mDaySince' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit' =
   handleErrorAuthorization sh $
     Server.handleServerFind
