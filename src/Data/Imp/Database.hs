@@ -12,6 +12,7 @@ module Data.Imp.Database
     WebServerDB (..),
     UserTId,
     NewsTId,
+    UserId,
   )
 where
 
@@ -33,6 +34,8 @@ data UserT f = UserT
   deriving (Generic, Beamable)
 
 type UserTId = UserT Identity
+
+type UserId = PrimaryKey UserT Identity
 
 instance Table UserT where
   data PrimaryKey UserT f = UserId (Columnar f Login)

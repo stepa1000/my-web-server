@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Data.Imp.Server.News
@@ -350,3 +351,42 @@ nameNewsT nn =
       _newsPhoto = undefined,
       _newsPublic = undefined
     }
+
+type CxtFilterSearch f =
+  ( Columnar f NameNews
+      ~ QGenExpr
+          QValueContext
+          Postgres
+          ( QNested
+              (QNested QBaseScope)
+          )
+          Content,
+    HaskellLiteralForQExpr (Columnar f Day) ~ Day,
+    HaskellLiteralForQExpr (Columnar f FlagPublished) ~ Bool,
+    SqlOrd
+      ( QGenExpr
+          QValueContext
+          Postgres
+          (QNested (QNested QBaseScope))
+      )
+      (Columnar f Day),
+    SqlEq
+      (QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)))
+      ( Columnar
+          f
+          Day
+      ),
+    SqlEq
+      ( QGenExpr
+          QValueContext
+          Postgres
+          ( QNested
+              ( QNested
+                  QBaseScope
+              )
+          )
+      )
+      (Columnar f FlagPublished),
+    SqlValable (Columnar f Day),
+    SqlValable (Columnar f FlagPublished)
+  )

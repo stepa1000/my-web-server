@@ -79,13 +79,13 @@ hAuthorizationFail hl = do
 hGetAccount :: Logger.Handle IO -> Connection -> Login -> IO (Maybe UserPublic)
 hGetAccount hl c login = do
   Logger.logInfo hl "Get account"
-  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ loginUserT login)
+  l <- listStreamingRunSelect c $ lookup_ (dbUser webServerDB) (primaryKey $ loginUserT login)
   return (userTToUserPublic <$> listToMaybe l)
 
 hCheckAccount :: Logger.Handle IO -> Connection -> Login -> Password -> IO (Maybe UserPublic)
 hCheckAccount hl c login p = do
   Logger.logInfo hl "Check account"
-  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ loginUserT login)
+  l <- listStreamingRunSelect c $ lookup_ (dbUser webServerDB) (primaryKey $ loginUserT login)
   case l of
     (x : _) -> do
       let px = _userPasswordHash x
@@ -103,7 +103,7 @@ hUserList hl conn config offset limit' = do
         limit_ (toInteger limit) $
           offset_ (toInteger offset) $
             orderBy_ (asc_ . _userLogin) $
-              all_ (_accounts accountDB)
+              all_ (dbUser webServerDB)
   return $ fmap userTToUserPublic lut
   where
     limit =
@@ -130,13 +130,13 @@ userTToUserPublic ut =
 hCreateUser :: Logger.Handle IO -> Connection -> Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> IO UserPublic
 hCreateUser hl c name login password flagMN flagA = do
   Logger.logInfo hl "Create user"
-  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ loginUserT login)
+  l <- listStreamingRunSelect c $ lookup_ (dbUser webServerDB) (primaryKey $ loginUserT login)
   case l of
     [] -> do
       (UTCTime day _) <- getCurrentTime
       _ <-
         BPC.runInsert c $
-          insert (_accounts accountDB) $
+          insert (dbUser webServerDB) $
             insertValues
               [ UserT
                   { _userName = name,
