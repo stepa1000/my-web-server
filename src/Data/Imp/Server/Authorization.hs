@@ -12,8 +12,6 @@ module Data.Imp.Server.Authorization
     UserT (..),
     UserTId,
     UserId,
-    AccountDB (..),
-    accountDB,
   )
 where
 
@@ -25,6 +23,7 @@ import Crypto.Hash
 import Data.Binary as Binary
 import Data.ByteArray
 import Data.ByteString as B
+import Data.Imp.Database
 import Data.Maybe
 import Data.Text
 import Data.Time.Calendar.OrdinalDate
@@ -179,32 +178,3 @@ loginUserT login =
       _userAdmin = undefined,
       _userMakeNews = undefined
     }
-
--- UserT for beam
-
-data UserT f = UserT
-  { _userName :: Columnar f Name,
-    _userLogin :: Columnar f Login,
-    _userPasswordHash :: Columnar f ByteString,
-    _userDateCreation :: Columnar f Day,
-    _userAdmin :: Columnar f FlagAdmin,
-    _userMakeNews :: Columnar f FlagMakeNews
-  }
-  deriving (Generic, Beamable)
-
-type UserTId = UserT Identity
-
-type UserId = PrimaryKey UserT Identity
-
-instance Table UserT where
-  data PrimaryKey UserT f = UserId (Columnar f Login)
-    deriving (Generic, Beamable)
-  primaryKey = UserId . _userLogin
-
-newtype AccountDB f = AccountDB
-  {_accounts :: f (TableEntity UserT)}
-  deriving (Generic)
-  deriving anyclass (Database be)
-
-accountDB :: DatabaseSettings be AccountDB
-accountDB = defaultDbSettings

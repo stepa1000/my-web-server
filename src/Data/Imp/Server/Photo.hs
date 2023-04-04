@@ -14,6 +14,7 @@ where
 import qualified Control.Logger as Logger
 import Control.Monad
 import qualified Control.Server.Photo as SPhoto
+import Data.Imp.Database
 import Data.Maybe
 import Data.Types
 import Data.UUID
@@ -40,7 +41,7 @@ hGetPhoto hl c p' = do
         ( \p ->
             listStreamingRunSelect c $
               lookup_
-                (_photos photoDB)
+                (dbPhoto webServerDB)
                 ( primaryKey $
                     PhotoT
                       { _photoUuid = p,
@@ -57,31 +58,8 @@ hPutPhoto hl c b = do
   u <- randomIO @UUID
   _ <-
     BPC.runInsert c $
-      insert (_photos photoDB) $
+      insert (dbPhoto webServerDB) $
         insertValues
           [ PhotoT u b
           ]
   return $ toText u
-
-data PhotoT f = PhotoT
-  { _photoUuid :: Columnar f UUID,
-    _photoData :: Columnar f Base64
-  }
-  deriving (Generic, Beamable)
-
--- type PhotoTId = PhotoT Identity
--- type PhotoId = PrimaryKey PhotoT Identity
-
-instance Table PhotoT where
-  data PrimaryKey PhotoT f = PhotoId (Columnar f UUID)
-    deriving (Generic, Beamable)
-  primaryKey = PhotoId . _photoUuid
-
-newtype PhotoDB f = PhotoDB
-  { _photos :: f (TableEntity PhotoT)
-  }
-  deriving (Generic)
-  deriving anyclass (Database be)
-
-photoDB :: DatabaseSettings be PhotoDB
-photoDB = defaultDbSettings

@@ -33,6 +33,7 @@ library
       Control.Server.News
       Control.Server.Photo
       Data.Config
+      Data.Imp.Database
       Data.Imp.Server
       Data.Imp.Server.Authorization
       Data.Imp.Server.Category
@@ -55,6 +56,7 @@ library
     , base >=4.7 && <5
     , base64
     , beam-core
+    , beam-migrate
     , beam-postgres
     , binary
     , bytestring
@@ -96,6 +98,7 @@ executable my-web-server-exe
     , base >=4.7 && <5
     , base64
     , beam-core
+    , beam-migrate
     , beam-postgres
     , binary
     , bytestring
@@ -143,6 +146,7 @@ test-suite my-web-server-test
     , base >=4.7 && <5
     , base64
     , beam-core
+    , beam-migrate
     , beam-postgres
     , binary
     , bytestring

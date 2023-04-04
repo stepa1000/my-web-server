@@ -5,15 +5,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Data.Imp.Server.News
   ( Config (..),
     makeHandle,
     NewsT (..),
-    NewsDB (..),
-    newsDB,
     hSearchContent,
     debugPosition,
   )
@@ -24,6 +21,7 @@ import qualified Control.Server.News as SNews
 import Data.Aeson as A
 import Data.ByteString
 import Data.Foldable
+import Data.Imp.Database
 import qualified Data.Imp.Server.Photo as ImpSPhoto
 import Data.List (sortBy)
 import Data.Maybe as Maybe
@@ -64,21 +62,21 @@ hSearchNews hl maxLimit c s = do
   lm <- (fmap . fmap) newsTToNews $ listStreamingRunSelect c $ select $ searchNews (toInteger <$> mLimit s) (toInteger <$> mOffSet s)
   return $ sortNews (mSortBy s) $ Maybe.catMaybes lm
   where
-    searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_ (filterSearch s) (all_ (_news newsDB))
-    searchNews _ _ = limit_ maxLimit $ offset_ 0 $ filter_ (filterSearch s) (all_ (_news newsDB))
+    searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_ (filterSearch s) (all_ (dbNews webServerDB))
+    searchNews _ _ = limit_ maxLimit $ offset_ 0 $ filter_ (filterSearch s) (all_ (dbNews webServerDB))
 
 hSearchContent :: Integer -> Connection -> Content -> IO [News]
 hSearchContent maxLimit c content = do
   lm <- (fmap . fmap) newsTToNews $ listStreamingRunSelect c $ select $ searchNews Nothing Nothing
   return $ Maybe.catMaybes lm
   where
-    searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_' (filterContent' (Just content)) (all_ (_news newsDB))
-    searchNews _ _ = limit_ maxLimit $ offset_ 0 $ filter_' (filterContent' (Just content)) (all_ (_news newsDB))
+    searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_' (filterContent' (Just content)) (all_ (dbNews webServerDB))
+    searchNews _ _ = limit_ maxLimit $ offset_ 0 $ filter_' (filterContent' (Just content)) (all_ (dbNews webServerDB))
 
 debugPosition :: Connection -> Content -> IO ByteString
 debugPosition c content = do
   pgTraceStmtIO' @(SqlSelect Postgres Integer) c $ select $ do
-    n <- all_ (_news newsDB)
+    n <- all_ (dbNews webServerDB)
     return $ position (val_ content) (_newsContent n)
 
 position :: QGenExpr QValueContext Postgres QBaseScope Content -> QGenExpr QValueContext Postgres QBaseScope Content -> QGenExpr QValueContext Postgres QBaseScope Integer
@@ -271,19 +269,19 @@ hGetDay = do
 hModifNews :: Logger.Handle IO -> Connection -> NameNews -> (News -> News) -> IO ()
 hModifNews hl c nn f = do
   Logger.logInfo hl "Modify news"
-  l <- listStreamingRunSelect c $ lookup_ (_news newsDB) (primaryKey $ nameNewsT nn)
+  l <- listStreamingRunSelect c $ lookup_ (dbNews webServerDB) (primaryKey $ nameNewsT nn)
   case l of
     (x : _) -> do
       _ <-
         BPC.runDelete c $
           delete
-            (_news newsDB)
+            (dbNews webServerDB)
             (\n -> _newsNewsName n ==. val_ (_newsNewsName x))
       let mn = f <$> newsTToNews x
       traverse_
         ( \n -> do
             BPC.runInsert c $
-              Beam.insert (_news newsDB) $
+              Beam.insert (dbNews webServerDB) $
                 insertValues
                   [ newsToNewsT n
                   ]
@@ -294,7 +292,7 @@ hModifNews hl c nn f = do
 hGetNews :: Logger.Handle IO -> Connection -> NewsName -> IO (Maybe News)
 hGetNews hl c nn = do
   Logger.logInfo hl "Gut news"
-  l <- listStreamingRunSelect c $ lookup_ (_news newsDB) (primaryKey $ nameNewsT nn)
+  l <- listStreamingRunSelect c $ lookup_ (dbNews webServerDB) (primaryKey $ nameNewsT nn)
   case l of
     (x : _) -> return $ newsTToNews x
     [] -> return Nothing
@@ -304,7 +302,7 @@ hPutNews hl c n = do
   Logger.logInfo hl "Put news"
   _ <-
     BPC.runInsert c $
-      Beam.insert (_news newsDB) $
+      Beam.insert (dbNews webServerDB) $
         insertValues
           [ newsToNewsT n
           ]
@@ -352,73 +350,3 @@ nameNewsT nn =
       _newsPhoto = undefined,
       _newsPublic = undefined
     }
-
-data NewsT f = NewsT
-  { _newsNewsName :: Columnar f NameNews,
-    _newsLoginAuthor :: Columnar f Login,
-    _newsNameAuthor :: Columnar f Name,
-    _newsDateCreation :: Columnar f Day,
-    _newsCategory :: Columnar f Category,
-    _newsContent :: Columnar f Content,
-    _newsPhoto :: Columnar f ByteString,
-    _newsPublic :: Columnar f FlagPublished
-  }
-  deriving (Generic, Beamable)
-
-type NewsTId = NewsT Identity
-
--- type NewsId = PrimaryKey NewsT Identity
-
-instance Table NewsT where
-  data PrimaryKey NewsT f = NewsId (Columnar f NameNews)
-    deriving (Generic, Beamable)
-  primaryKey = NewsId . _newsNewsName
-
-newtype NewsDB f = NewsDB
-  {_news :: f (TableEntity NewsT)}
-  deriving (Generic)
-  deriving anyclass (Database be)
-
-newsDB :: DatabaseSettings be NewsDB
-newsDB = defaultDbSettings
-
--- Cxt
-
-type CxtFilterSearch f =
-  ( Columnar f NameNews
-      ~ QGenExpr
-          QValueContext
-          Postgres
-          ( QNested
-              (QNested QBaseScope)
-          )
-          Content,
-    HaskellLiteralForQExpr (Columnar f Day) ~ Day,
-    HaskellLiteralForQExpr (Columnar f FlagPublished) ~ Bool,
-    SqlOrd
-      ( QGenExpr
-          QValueContext
-          Postgres
-          (QNested (QNested QBaseScope))
-      )
-      (Columnar f Day),
-    SqlEq
-      (QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)))
-      ( Columnar
-          f
-          Day
-      ),
-    SqlEq
-      ( QGenExpr
-          QValueContext
-          Postgres
-          ( QNested
-              ( QNested
-                  QBaseScope
-              )
-          )
-      )
-      (Columnar f FlagPublished),
-    SqlValable (Columnar f Day),
-    SqlValable (Columnar f FlagPublished)
-  )
