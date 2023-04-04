@@ -34,6 +34,7 @@ library
       Control.Server.Photo
       Data.Config
       Data.Imp.Database
+      Data.Imp.Migration
       Data.Imp.Server
       Data.Imp.Server.Authorization
       Data.Imp.Server.Category
