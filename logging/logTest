@@ -1,3 +1,0 @@
-Debug: create temp admin: Just (UserPublic {nameUser = "tempAdmin", loginUser = "tempAdmin", dateCreationUser = 2023-01-14, adminUser = True, makeNewsUser = False})
-Info: call handleUserList
-Info: call handleUserList

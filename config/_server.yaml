@@ -1,0 +1,15 @@
+confAuthorization:
+  confLimit: 10
+confConnectionInfo:
+  connectDatabase: newsdb
+  connectHost: 127.0.0.1
+  connectPassword: ''
+  connectPort: 5432
+  connectUser: stepan
+confFailPathToCategoryNews: ./data/categoryNews.json
+confLogger:
+  preconfFilePath: ./logging/log
+  preconfMinLevel: Error
+confNews:
+  confMaxLimit: 10
+
