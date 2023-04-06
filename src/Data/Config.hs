@@ -62,10 +62,12 @@ testDefaultServerSettings = do
       }
 
 mainDBConnect :: ConnectInfo
-mainDBConnect = defaultConnectInfo {connectUser = "stepan", connectDatabase = "newsdb"}
+mainDBConnect =
+  defaultConnectInfo {connectUser = "stepan", connectDatabase = "newsdb", connectPassword = "123"}
 
 testDBConnect :: ConnectInfo
-testDBConnect = defaultConnectInfo {connectUser = "stepan", connectDatabase = "testDB"}
+testDBConnect =
+  defaultConnectInfo {connectUser = "stepan", connectDatabase = "testdb", connectPassword = "123"}
 
 initNewsCategoryMain :: IO ()
 initNewsCategoryMain = do
