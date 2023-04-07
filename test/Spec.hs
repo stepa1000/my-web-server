@@ -1,19 +1,17 @@
--- {-# OPTIONS_GHC -F -pgmF hspec-discover #-}
 {-# OPTIONS_GHC -Wwarn #-}
 
--- module Spec where
-
+import qualified AuthorizationSpec
+import qualified NewsSpec
+import qualified ServerSpec
 import Test.Hspec
 
-import qualified NewsSpec
-import qualified AuthorizationSpec
-import qualified ServerSpec
-
 main :: IO ()
-main = hspec spec
+main = do
+  migrationDBServerTest
+  hspec spec
 
 spec :: Spec
 spec =
-  AuthorizationSpec.spec >>= 
-  (const NewsSpec.spec) >>=
-  (const ServerSpec.spec)
+  AuthorizationSpec.spec
+    >>= (const NewsSpec.spec)
+    >>= (const ServerSpec.spec)

@@ -160,7 +160,9 @@ migrateDB conn =
 migrateDBServer :: Server.Config -> IO (Maybe (CheckedDatabaseSettings Postgres WebServerDB))
 migrateDBServer s = do
   c <- connect (Server.confConnectionInfo s)
-  migrateDB c
+  cds <- migrateDB c
+  close c
+  return cds
 
 migrationDBServerMain :: IO (Maybe (CheckedDatabaseSettings Postgres WebServerDB))
 migrationDBServerMain = do
