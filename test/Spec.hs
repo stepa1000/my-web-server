@@ -7,7 +7,6 @@ import Test.Hspec
 
 main :: IO ()
 main = do
-  migrationDBServerTest
   hspec spec
 
 spec :: Spec
