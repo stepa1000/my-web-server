@@ -10,6 +10,7 @@ module Data.Imp.Migration
     migrateDBServer,
     migrationDBServerMain,
     migrationDBServerTest,
+    writeInitialSetupStep,
   )
 where
 
@@ -140,6 +141,9 @@ initialSetupStep =
   migrationStep
     "initial_setup"
     (const initialSetup)
+
+writeInitialSetupStep :: IO ()
+writeInitialSetupStep = PG.writeMigrationScript "sql-migration/initialMigration.sql" initialSetupStep
 
 allowDestructive :: (MonadFail m) => BringUpToDateHooks m
 allowDestructive =
