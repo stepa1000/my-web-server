@@ -34,6 +34,7 @@ library
       Control.Server.Photo
       Data.Config
       Data.Imp.Database
+      Data.Imp.Migration
       Data.Imp.Server
       Data.Imp.Server.Authorization
       Data.Imp.Server.Category
@@ -56,7 +57,6 @@ library
     , base >=4.7 && <5
     , base64
     , beam-core
-    , beam-migrate
     , beam-postgres
     , binary
     , bytestring
@@ -70,6 +70,8 @@ library
     , http-client-tls
     , memory
     , mtl
+    , postgresql-migration
+    , postgresql-simple
     , random
     , servant
     , servant-client
@@ -98,7 +100,6 @@ executable my-web-server-exe
     , base >=4.7 && <5
     , base64
     , beam-core
-    , beam-migrate
     , beam-postgres
     , binary
     , bytestring
@@ -113,6 +114,8 @@ executable my-web-server-exe
     , memory
     , mtl
     , my-web-server
+    , postgresql-migration
+    , postgresql-simple
     , random
     , servant
     , servant-client
@@ -146,7 +149,6 @@ test-suite my-web-server-test
     , base >=4.7 && <5
     , base64
     , beam-core
-    , beam-migrate
     , beam-postgres
     , binary
     , bytestring
@@ -161,6 +163,8 @@ test-suite my-web-server-test
     , memory
     , mtl
     , my-web-server
+    , postgresql-migration
+    , postgresql-simple
     , random
     , servant
     , servant-client

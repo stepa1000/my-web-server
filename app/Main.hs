@@ -1,10 +1,13 @@
 module Main (main) where
 
 import Data.Config
+import Data.Imp.Migration
 import Data.Imp.Server
 
 main :: IO ()
 main = do
+  r <- migrationMain
+  putStrLn $ show r
   conf <- getServerSettings
   server actExit conf
 

@@ -7,6 +7,8 @@ import Test.Hspec
 
 main :: IO ()
 main = do
+  r <- migrationTest
+  putStrLn $ show r
   hspec spec
 
 spec :: Spec

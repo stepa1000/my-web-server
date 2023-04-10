@@ -34,7 +34,6 @@ dependencies:
 - vector
 - beam-core
 - beam-postgres
-- beam-migrate
 - conduit
 - memory
 - binary
@@ -52,6 +51,8 @@ dependencies:
 - yaml
 - http-client-tls
 - http-client
+- postgresql-migration
+- postgresql-simple
 
 ghc-options:
 # -XOverloadedStrings
