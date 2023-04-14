@@ -13,6 +13,7 @@ module Data.Imp.Database
     UserTId,
     NewsTId,
     UserId,
+    CategoryTId,
   )
 where
 
@@ -20,6 +21,7 @@ import Data.ByteString
 import Data.Time.Calendar.OrdinalDate
 import Data.Types
 import Data.UUID
+import Data.Vector
 import Database.Beam as Beam
 import Prelude as P
 
@@ -61,6 +63,28 @@ instance Table NewsT where
     deriving (Generic, Beamable)
   primaryKey = NewsId . _newsNewsName
 
+data CategoryT f = CategoryT
+  { _categoryCategoryName :: Columnar f Category,
+    _categoryParent :: Columnar f Category,
+    _categoryChild :: Columnar f (Vector Category)
+  }
+  deriving (Generic, Beamable)
+
+categoryName :: Category -> CategoryTId
+categoryName c =
+  CategoryT
+    { _categoryCategoryName = c,
+      _categoryParent = undefined,
+      _categoryChild = undefined
+    }
+
+type CategoryTId = CategoryT Identity
+
+instance Table CategoryT where
+  data PrimaryKey CategoryT f = CategoryId (Columnar f Category)
+    deriving (Generic, Beamable)
+  primaryKey = CategoryId . _categoryCategoryName
+
 data PhotoT f = PhotoT
   { _photoUuid :: Columnar f UUID,
     _photoData :: Columnar f Base64
@@ -75,7 +99,8 @@ instance Table PhotoT where
 data WebServerDB f = WebServerDB
   { dbUser :: f (TableEntity UserT),
     dbNews :: f (TableEntity NewsT),
-    dbPhoto :: f (TableEntity PhotoT)
+    dbPhoto :: f (TableEntity PhotoT),
+    dbCategory :: f (TableEntity CategoryT)
   }
   deriving (Generic)
   deriving anyclass (Database be)

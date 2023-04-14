@@ -53,6 +53,7 @@ dependencies:
 - http-client
 - postgresql-migration
 - postgresql-simple
+- vector
 
 ghc-options:
 # -XOverloadedStrings

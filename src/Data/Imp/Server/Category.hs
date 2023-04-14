@@ -1,11 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Data.Imp.Server.Category
   ( withHandle,
-    initNewsCategory',
   )
 where
 
@@ -15,41 +13,99 @@ import qualified Control.Server.Category as Category
 import Data.Aeson as A
 import Data.Bifunctor
 import Data.IORef
+import Data.Imp.Database
 import Data.List as List (unzip)
 import Data.Maybe as Maybe
 import Data.Text
 import Data.Tree as Tree
 import Data.Types
+import Data.Vector as V
+import Database.Beam.Postgres
+import Database.Beam.Postgres.Conduit as BPC
 import Prelude as P
 
-withHandle :: Logger.Handle IO -> FilePath -> (Category.Handle IO -> IO a) -> IO a
-withHandle hl fp g = do
-  mnc <- decodeFileStrict fp
-  case mnc of
-    (Just nc) -> do
-      rnc <- newIORef nc
-      a <-
-        g $
-          Category.Handle
-            { Category.hGetCategory = hGetCategory hl rnc,
-              Category.hChangeCategory = hChangeCategory hl rnc,
-              Category.hCreateCategory = hCreateCategory hl rnc
-            }
-      nc2 <- readIORef rnc
-      A.encodeFile fp nc2
-      return a
-    _ -> error "fail is not opening"
+-- | implementation for handling database calls related to the catechory table.
+--
+-- the handler structure contains functions that have been written before.
+--
+-- to pass the configured functions to the
+-- message processing loop of the client to execute the above described functions.
+withHandle :: Logger.Handle IO -> Connection -> (Category.Handle IO -> IO a) -> IO a
+withHandle hl c g = do
+  g $
+    Category.Handle
+      { Category.hGetCategory = fromJust $ getNewsCategory hl c "General",
+        Category.hChangeCategory = hChangeCategory hl,
+        Category.hCreateCategory = hCreateCategory hl
+      }
+
+-- | Initializing the most common category or the first vertex of the tree.
+--
+-- The general category is queried and if nothing is returned, it is created.
+--
+-- for convenience. The vertex will always be checked before
+-- configuring the handler and will always have the same name.
+initNewsCategoty :: Logger.Handle IO -> Connection -> Category -> IO ()
+
+initNewsCategory hl c ca = do
+  mc <- getNewsCategory hl c ca
+  case mc of
+    (Just cat) -> return ()
+    Nothing -> do
+
+-- | Creating category.
+--
+-- Writes the child category to the parent category and adds it to the database.
+--
+-- To create an hierarchy of configurations.
+createCategory :: Logger.Handle IO -> Connection -> Category -> Category -> IO ()
+createCategory hl c car can = do
+  runUpdate c $
+    update
+      (dbCategory webServerDB)
+      (\cat -> _categoryChild cat <-. current_ (_categoryChild cat) V.++ (V.singletone can))
+      (\cat -> _categoryCategoryName cat ==. val_ car)
+  BPC.runInsert c $
+    insert
+      (dbCategory webServerDB)
+      ( insertValues
+          [ CategoryT
+              { _categoryCategoryName = can,
+                _categoryParent = car,
+                _categoryChild = V.empty
+              }
+          ]
+      )
+  return ()
+
+-- | Taking the full tree of news categories.
+--
+-- The specified category and all subcategories specified as children are taken.
+-- Then they are merged into the whole tree.
+--
+-- it is necessary for a holistic view of the tree structure and
+-- easy viewing and sending to the server's clients.
+getNewsCategory :: Logger.Handle IO -> Connection -> Category -> IO (Maybe NewsCategory)
+getNewsCategory hl c ca = do
+  mc <- getCategory hl c ca
+  case mc of
+    (Just catT) -> do
+      vc <- P.mapM (getNewsCategory hl c) (_categoryChild catT)
+      return $ Node ca (V.tiList vc)
+
+getCategory :: Logger.Handle IO -> Connection -> Category -> IO (Maybe CategoryTId)
+getCategory hl c ca = do
+  Logger.logInfo hl "Get category parrent"
+  l <- listStreamingRunSelect c $ lookup_ (dbCategory webServerDB) (primaryKey $ categoryName ca)
+  return $ listToMaybe l
 
 hGetCategory :: Logger.Handle IO -> IORef NewsCategory -> IO NewsCategory
 hGetCategory hl r = do
   Logger.logInfo hl "Get category"
   readIORef r
 
-initNewsCategory' :: String -> IO ()
-initNewsCategory' fp = do
-  encodeFile @(Tree Text) fp $ Node "General" []
-
 -- | changing category name and ancestor
+--                                                              cut              addTo            rename
 hChangeCategory :: Logger.Handle IO -> IORef NewsCategory -> Category -> Maybe Category -> Maybe Category -> IO ()
 hChangeCategory hl rnc c (Just nrc) (Just nnc) = do
   Logger.logInfo hl "Change category: name and ancestor"
@@ -70,6 +126,7 @@ hCreateCategory hl rnc cr cn = do
   Logger.logInfo hl "Create category"
   modifyIORef rnc (\t -> addTree t cr [Node cn []])
 
+--                            addTo cut rename
 cutAddTree :: Eq a => Tree a -> a -> a -> a -> Tree a
 cutAddTree t e n n2 = f $ cutTree t n
   where
