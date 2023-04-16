@@ -14,6 +14,8 @@ module Data.Imp.Database
     NewsTId,
     UserId,
     CategoryTId,
+    CategoryT (..),
+    categoryName,
   )
 where
 

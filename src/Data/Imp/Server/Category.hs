@@ -10,18 +10,16 @@ where
 import qualified Control.Logger as Logger
 import Control.Monad
 import qualified Control.Server.Category as Category
-import Data.Aeson as A
-import Data.Bifunctor
-import Data.IORef
 import Data.Imp.Database
-import Data.List as List (unzip)
 import Data.Maybe as Maybe
-import Data.Text
 import Data.Tree as Tree
 import Data.Types
+import Data.Utils
 import Data.Vector as V
 import Database.Beam.Postgres
 import Database.Beam.Postgres.Conduit as BPC
+import Database.Beam.Query as Beam
+import Database.Beam.Schema.Tables
 import Prelude as P
 
 -- | implementation for handling database calls related to the catechory table.
@@ -32,12 +30,72 @@ import Prelude as P
 -- message processing loop of the client to execute the above described functions.
 withHandle :: Logger.Handle IO -> Connection -> (Category.Handle IO -> IO a) -> IO a
 withHandle hl c g = do
+  _ <- initNewsCategory hl c "General"
   g $
     Category.Handle
-      { Category.hGetCategory = fromJust $ getNewsCategory hl c "General",
-        Category.hChangeCategory = hChangeCategory hl,
-        Category.hCreateCategory = hCreateCategory hl
+      { Category.hGetCategory = fromMaybe (Node "" []) <$> getNewsCategory hl c "General",
+        Category.hChangeCategory = changeCategory hl c,
+        Category.hCreateCategory = createCategory hl c
       }
+
+-- | change the ancestor of a category or name.
+--
+-- The fields in the specified row of the table are
+-- updated according to the above mentioned fields.
+--
+-- to improve the hierarchy of topic approximation.
+changeCategory :: Logger.Handle IO -> Connection -> Category -> Maybe Category -> Maybe Category -> IO ()
+changeCategory hl c cat cr cnn = do
+  Logger.logInfo hl "Change category"
+  mcatT <- getCategory hl c cat
+  _ <-
+    BPC.runUpdate c $
+      Beam.updateTable
+        (dbCategory webServerDB)
+        ( CategoryT
+            { _categoryCategoryName =
+                toUpdatedValueMaybe $
+                  const $
+                    fmap val_ cnn,
+              _categoryParent =
+                toUpdatedValueMaybe $
+                  const $
+                    fmap val_ cr,
+              _categoryChild = toOldValue
+            }
+        )
+        (\cat2 -> _categoryCategoryName cat2 ==. val_ cat)
+  P.mapM_
+    ( \(p, catT) ->
+        do
+          _ <-
+            BPC.runUpdate c $
+              Beam.updateTable
+                (dbCategory webServerDB)
+                ( CategoryT
+                    { _categoryCategoryName = toOldValue,
+                      _categoryParent = toOldValue,
+                      _categoryChild = toUpdatedValue $
+                        \v -> arrayRemove (_categoryChild v) (val_ cat)
+                    }
+                )
+                (\cat2 -> _categoryCategoryName cat2 ==. val_ (_categoryParent catT))
+          _ <-
+            BPC.runUpdate c $
+              Beam.updateTable
+                (dbCategory webServerDB)
+                ( CategoryT
+                    { _categoryCategoryName = toOldValue,
+                      _categoryParent = toOldValue,
+                      _categoryChild = toUpdatedValue $
+                        \v -> concatV_ (_categoryChild v) (val_ $ V.singleton cat)
+                    }
+                )
+                (\cat2 -> _categoryCategoryName cat2 ==. val_ p)
+          return ()
+    )
+    (cr >>= (\x -> (,) x <$> mcatT))
+  return ()
 
 -- | Initializing the most common category or the first vertex of the tree.
 --
@@ -45,13 +103,25 @@ withHandle hl c g = do
 --
 -- for convenience. The vertex will always be checked before
 -- configuring the handler and will always have the same name.
-initNewsCategoty :: Logger.Handle IO -> Connection -> Category -> IO ()
-
+initNewsCategory :: Logger.Handle IO -> Connection -> Category -> IO ()
 initNewsCategory hl c ca = do
   mc <- getNewsCategory hl c ca
   case mc of
-    (Just cat) -> return ()
+    (Just _) -> return ()
     Nothing -> do
+      _ <-
+        BPC.runInsert c $
+          Beam.insert
+            (dbCategory webServerDB)
+            ( Beam.insertValues
+                [ CategoryT
+                    { _categoryCategoryName = ca,
+                      _categoryParent = "",
+                      _categoryChild = V.empty
+                    }
+                ]
+            )
+      return ()
 
 -- | Creating category.
 --
@@ -60,22 +130,25 @@ initNewsCategory hl c ca = do
 -- To create an hierarchy of configurations.
 createCategory :: Logger.Handle IO -> Connection -> Category -> Category -> IO ()
 createCategory hl c car can = do
-  runUpdate c $
-    update
-      (dbCategory webServerDB)
-      (\cat -> _categoryChild cat <-. current_ (_categoryChild cat) V.++ (V.singletone can))
-      (\cat -> _categoryCategoryName cat ==. val_ car)
-  BPC.runInsert c $
-    insert
-      (dbCategory webServerDB)
-      ( insertValues
-          [ CategoryT
-              { _categoryCategoryName = can,
-                _categoryParent = car,
-                _categoryChild = V.empty
-              }
-          ]
-      )
+  Logger.logInfo hl "Create category"
+  _ <-
+    BPC.runUpdate c $
+      Beam.update
+        (dbCategory webServerDB)
+        (\cat -> _categoryChild cat <-. concatV_ (current_ (_categoryChild cat)) (val_ $ V.singleton can))
+        (\cat -> _categoryCategoryName cat ==. val_ car)
+  _ <-
+    BPC.runInsert c $
+      insert
+        (dbCategory webServerDB)
+        ( insertValues
+            [ CategoryT
+                { _categoryCategoryName = can,
+                  _categoryParent = car,
+                  _categoryChild = V.empty
+                }
+            ]
+        )
   return ()
 
 -- | Taking the full tree of news categories.
@@ -90,8 +163,9 @@ getNewsCategory hl c ca = do
   mc <- getCategory hl c ca
   case mc of
     (Just catT) -> do
-      vc <- P.mapM (getNewsCategory hl c) (_categoryChild catT)
-      return $ Node ca (V.tiList vc)
+      vc <- V.catMaybes <$> P.mapM (getNewsCategory hl c) (_categoryChild catT)
+      return $ Just $ Node ca (V.toList vc)
+    Nothing -> return Nothing
 
 getCategory :: Logger.Handle IO -> Connection -> Category -> IO (Maybe CategoryTId)
 getCategory hl c ca = do
@@ -99,11 +173,7 @@ getCategory hl c ca = do
   l <- listStreamingRunSelect c $ lookup_ (dbCategory webServerDB) (primaryKey $ categoryName ca)
   return $ listToMaybe l
 
-hGetCategory :: Logger.Handle IO -> IORef NewsCategory -> IO NewsCategory
-hGetCategory hl r = do
-  Logger.logInfo hl "Get category"
-  readIORef r
-
+{-
 -- | changing category name and ancestor
 --                                                              cut              addTo            rename
 hChangeCategory :: Logger.Handle IO -> IORef NewsCategory -> Category -> Maybe Category -> Maybe Category -> IO ()
@@ -136,19 +206,19 @@ cutAddTree t e n n2 = f $ cutTree t n
 addTree :: Eq a => Tree a -> a -> [Tree a] -> Tree a
 addTree t r lsf = snd $ mapTree t r f
   where
-    f a sf = ((), a, lsf ++ sf)
+    f a sf = ((), a, lsf P.++ sf)
 
 -- | returns the subtrees and the remaining tree
 cutTree :: Eq a => Tree a -> a -> ([Tree a], Maybe (Tree a))
 cutTree t a =
-  bimap (mapMaybe catMaybesTree) catMaybesTree $
+  bimap (Maybe.mapMaybe catMaybesTree) catMaybesTree $
     cutTree' (fmap Just t) (Just a)
 
 catMaybesTree :: Tree (Maybe a) -> Maybe (Tree a)
 catMaybesTree = foldTree f
   where
     f :: Maybe a -> [Maybe (Tree a)] -> Maybe (Tree a)
-    f ma t = ma >>= (\a -> return $ Node a (catMaybes t))
+    f ma t = ma >>= (\a -> return $ Node a (Maybe.catMaybes t))
 
 cutTree' :: Eq a => Tree (Maybe a) -> Maybe a -> ([Tree (Maybe a)], Tree (Maybe a))
 cutTree' t a = first join $ mapTree t a f
@@ -170,3 +240,4 @@ mapTree t a f
         List.unzip $
           fmap (\tn -> mapTree tn a f) (subForest t)
   | otherwise = ([], t)
+-}
