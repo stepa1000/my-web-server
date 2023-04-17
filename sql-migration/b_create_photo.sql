@@ -9,25 +9,6 @@
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = off;
 
--- initial_setup
-CREATE TABLE "user" 
-  ( "name" TEXT NOT NULL,  
-    "login" TEXT NOT NULL UNIQUE, 
-    "passwordHash" BYTEA NOT NULL, 
-    "dateCreation" DATE NOT NULL, 
-    "admin" BOOLEAN NOT NULL, 
-    "makeNews" BOOLEAN NOT NULL, 
-    PRIMARY KEY("login")) ;
-CREATE TABLE "news" 
-  ( "newsName" TEXT NOT NULL UNIQUE, 
-    "loginAuthor" TEXT NOT NULL UNIQUE, 
-    "nameAuthor" TEXT NOT NULL, 
-    "dateCreation" DATE NOT NULL, 
-    "category" TEXT NOT NULL, 
-    "content" TEXT NOT NULL, 
-    "photo" BYTEA NOT NULL, 
-    "makeNews" BOOLEAN NOT NULL, 
-    PRIMARY KEY("newsName")) ;
 CREATE TABLE "photo" 
   ( "uuid" UUID NOT NULL UNIQUE, 
     "data" TEXT NOT NULL, 

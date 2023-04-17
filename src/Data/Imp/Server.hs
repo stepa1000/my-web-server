@@ -39,7 +39,6 @@ import System.Posix.Signals
 
 data Config = Config
   { confNews :: News.Config,
-    confFailPathToCategoryNews :: FilePath,
     confAuthorization :: Authorization.Config,
     confConnectionInfo :: ConnectInfo,
     confLogger :: ImpLogger.PreConfig
@@ -338,7 +337,7 @@ withHandle conf g = do
         let ah = Authorization.makeHandle lh (confAuthorization conf) con
         Category.withHandle
           lh
-          (confFailPathToCategoryNews conf)
+          con
           ( \ch -> do
               a <-
                 g $
@@ -363,7 +362,7 @@ withHandleTest conf g = do
         let ah = Authorization.makeHandle lh (confAuthorization conf) con
         Category.withHandle
           lh
-          (confFailPathToCategoryNews conf)
+          con
           ( \ch -> do
               a <-
                 g
