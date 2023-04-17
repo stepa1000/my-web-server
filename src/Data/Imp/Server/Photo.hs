@@ -44,7 +44,7 @@ hGetPhoto hl c p' = do
                 (dbPhoto webServerDB)
                 ( primaryKey $
                     PhotoT
-                      { _photoUuid = p,
+                      { _photoUuidPhoto = p,
                         _photoData = undefined
                       }
                 )

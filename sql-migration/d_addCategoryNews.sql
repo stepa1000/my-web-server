@@ -5,4 +5,4 @@ CREATE TABLE "category"
   ( "categoryName" TEXT NOT NULL UNIQUE, 
     "parent" TEXT NOT NULL,
     "child" TEXT[],
-    PRIMARY KEY("uuid")) ;
+    PRIMARY KEY("categoryName")) ;

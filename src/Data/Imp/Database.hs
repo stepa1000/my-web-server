@@ -88,7 +88,7 @@ instance Table CategoryT where
   primaryKey = CategoryId . _categoryCategoryName
 
 data PhotoT f = PhotoT
-  { _photoUuid :: Columnar f UUID,
+  { _photoUuidPhoto :: Columnar f UUID,
     _photoData :: Columnar f Base64
   }
   deriving (Generic, Beamable)
@@ -96,7 +96,7 @@ data PhotoT f = PhotoT
 instance Table PhotoT where
   data PrimaryKey PhotoT f = PhotoId (Columnar f UUID)
     deriving (Generic, Beamable)
-  primaryKey = PhotoId . _photoUuid
+  primaryKey = PhotoId . _photoUuidPhoto
 
 data WebServerDB f = WebServerDB
   { dbUser :: f (TableEntity UserT),

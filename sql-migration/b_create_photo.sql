@@ -10,6 +10,6 @@ SET client_encoding = 'UTF8';
 SET standard_conforming_strings = off;
 
 CREATE TABLE "photo" 
-  ( "uuid" UUID NOT NULL UNIQUE, 
+  ( "uuidPhoto" UUID NOT NULL UNIQUE, 
     "data" TEXT NOT NULL, 
-    PRIMARY KEY("uuid")) ;
+    PRIMARY KEY("uuidPhoto")) ;

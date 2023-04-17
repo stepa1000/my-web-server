@@ -75,7 +75,7 @@ migrationAll ci =
     [ f "a_create_user.sql",
       f "b_create_news.sql",
       f "b_create_photo.sql",
-      f "b_addCategoryNews.sql"
+      f "d_addCategoryNews.sql"
     ]
   where
     f t = (t, "./sql-migration/" ++ t)
