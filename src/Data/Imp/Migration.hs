@@ -9,10 +9,14 @@ module Data.Imp.Migration
   )
 where
 
+import Data.Char
 import Data.Config
 import qualified Data.Imp.Server as Server
+import Data.List (delete)
+import Data.List.Key as LK
 import Database.Beam.Postgres
 import Database.PostgreSQL.Simple.Migration
+import System.Directory
 import Prelude as P
 
 -- | Check and apply all current up to the relevant version of the migration for the database.
@@ -65,20 +69,19 @@ runMigrationFile c sn fp = do
       _ <- putStrLn "Migration skip"
       return a
 
+-- | Combining the name of the veil and the path to it into one tuple.
+pathUname :: String -> String -> (String, String)
+pathUname pth n = (n, pth ++ n)
+
 -- | Applying all available migrations to initialize from a clean database to the current version.
 --
 -- The body of the function lists the names of the sql-files and specifies the path to the file.
 migrationAll :: ConnectInfo -> IO [MigrationResult String]
-migrationAll ci =
+migrationAll ci = do
+  lf <- getDirectoryContents "./sql-migration/"
   runMigrationFiles
     ci
-    [ f "a_create_user.sql",
-      f "b_create_news.sql",
-      f "b_create_photo.sql",
-      f "d_addCategoryNews.sql"
-    ]
-  where
-    f t = (t, "./sql-migration/" ++ t)
+    (pathUname "./sql-migration/" <$> (LK.sort (read @Int . takeWhile isDigit) . delete "." . delete "..") lf)
 
 migrationMain :: IO [MigrationResult String]
 migrationMain = do

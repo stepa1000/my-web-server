@@ -64,6 +64,7 @@ library
     , config-value
     , containers
     , cryptonite
+    , directory
     , exceptions
     , hspec
     , http-client
@@ -80,6 +81,7 @@ library
     , time
     , transformers-base
     , unix
+    , utility-ht
     , uuid
     , vector
     , warp
@@ -107,6 +109,7 @@ executable my-web-server-exe
     , config-value
     , containers
     , cryptonite
+    , directory
     , exceptions
     , hspec
     , http-client
@@ -124,6 +127,7 @@ executable my-web-server-exe
     , time
     , transformers-base
     , unix
+    , utility-ht
     , uuid
     , vector
     , warp
@@ -156,6 +160,7 @@ test-suite my-web-server-test
     , config-value
     , containers
     , cryptonite
+    , directory
     , exceptions
     , hspec
     , http-client
@@ -173,6 +178,7 @@ test-suite my-web-server-test
     , time
     , transformers-base
     , unix
+    , utility-ht
     , uuid
     , vector
     , warp

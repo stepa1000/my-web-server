@@ -54,6 +54,8 @@ dependencies:
 - postgresql-migration
 - postgresql-simple
 - vector
+- directory
+- utility-ht
 
 ghc-options:
 # -XOverloadedStrings
