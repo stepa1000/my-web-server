@@ -41,11 +41,18 @@ import Database.Beam.Postgres.Conduit as BPC
 import Database.Beam.Query.Internal
 import Prelude as P
 
+-- | Config with a field that stores a value about the
+-- maximum length of the list when the query is output.
 newtype Config = Config
   {confMaxLimit :: Integer}
   deriving (Generic)
   deriving anyclass (Y.ToJSON, Y.FromJSON)
 
+-- | Handler Assembler.
+--
+-- Sets the implanted handler functions to the appropriate fields.
+--
+-- To have a handler that is usable in practice.
 makeHandle :: Logger.Handle IO -> Config -> Connection -> SNews.Handle IO
 makeHandle hl conf c =
   SNews.Handle

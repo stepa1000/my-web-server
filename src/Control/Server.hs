@@ -21,19 +21,31 @@ import qualified Control.Server.Authorization as ServerAuthorization
 import qualified Control.Server.Category as ServerCategory
 import qualified Control.Server.News as ServerNews
 import qualified Control.Server.Photo as ServerPhoto
-import Data.Maybe
 import Data.News
 import Data.Types
+import Data.UUID
 import Data.User
 import Data.Vector
 
+-- The handler that connects the subhandlers
+-- to provide to the user requests through the API.
 data Handle m = Handle
-  { handleLogger :: Logger.Handle m,
+  { -- | The handler for the logging.
+    handleLogger :: Logger.Handle m,
+    -- | To access the database to work with the news.
     handleNews :: ServerNews.Handle m,
+    -- | To access the database to work with the category.
     handleCategory :: ServerCategory.Handle m,
+    -- | To access the database to work with the user.
     handleAuthorization :: ServerAuthorization.Handle m
   }
 
+-- Find news.
+--
+-- It accesses the database through a handler that lies in the structure
+-- being transferred. It sets the default value if there is no data on the user.
+--
+-- The function serves as an intermediary between the API and the search services.
 handleServerFind ::
   Handle m ->
   Maybe UserPublic ->
@@ -42,20 +54,14 @@ handleServerFind ::
 handleServerFind
   h
   Nothing
-  (Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' _ mSortBy' mOffSet' mLimit') = do
-    ServerNews.handleFind (handleNews h) $
-      Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' (Just True) mSortBy' mOffSet' mLimit'
+  s =
+    do
+      ServerNews.handleFind (handleNews h) Nothing $
+        s {mFlagPublished = Just True}
 handleServerFind
   h
   muserPublic
-  (Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit') = do
-    if isJust muserPublic
-      then do
-        ServerNews.handleFind (handleNews h) $
-          Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit'
-      else do
-        ServerNews.handleFind (handleNews h) $
-          Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' (Just True) mSortBy' mOffSet' mLimit'
+  s = ServerNews.handleFind (handleNews h) (loginUser <$> muserPublic) s
 
 handleCategoryCreate ::
   Monad m =>
@@ -106,7 +112,7 @@ handleServerEditNews ::
   Monad m =>
   Handle m ->
   UserPublic ->
-  NameNews -> -- old
+  UUID -> -- old
   Maybe Content ->
   Maybe NameNews -> -- new
   Maybe Category ->
@@ -114,10 +120,10 @@ handleServerEditNews ::
   Vector Photo ->
   Vector Base64 ->
   m (Maybe News)
-handleServerEditNews h userpublic nameN mContent' mNameNews mCategory' mFlagP vPh vB64 = do
+handleServerEditNews h userpublic nUUID mContent' mNameNews mCategory' mFlagP vPh vB64 = do
   case userpublic of
     (UserPublic _ lu _ _ True) -> do
-      ServerNews.handleEditNews (handleNews h) lu nameN mContent' mNameNews mCategory' mFlagP vPh vB64
+      ServerNews.handleEditNews (handleNews h) lu nUUID mContent' mNameNews mCategory' mFlagP vPh vB64
     _ -> do
       ServerAuthorization.hCreatorNewsCheckFail (handleAuthorization h)
       return Nothing

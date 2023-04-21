@@ -47,7 +47,8 @@ instance Table UserT where
   primaryKey = UserId . _userLogin
 
 data NewsT f = NewsT
-  { _newsNewsName :: Columnar f NameNews,
+  { _newsUuidNews :: Columnar f UUID,
+    _newsNewsName :: Columnar f NameNews,
     _newsLoginAuthor :: Columnar f Login,
     _newsNameAuthor :: Columnar f Name,
     _newsDateCreation :: Columnar f Day,
@@ -66,7 +67,8 @@ instance Table NewsT where
   primaryKey = NewsId . _newsNewsName
 
 data CategoryT f = CategoryT
-  { _categoryCategoryName :: Columnar f Category,
+  { _categoryUuidCategory :: Columnar f UUID,
+    _categoryCategoryName :: Columnar f Category,
     _categoryParent :: Columnar f Category,
     _categoryChild :: Columnar f (Vector Category)
   }
@@ -75,7 +77,8 @@ data CategoryT f = CategoryT
 categoryName :: Category -> CategoryTId
 categoryName c =
   CategoryT
-    { _categoryCategoryName = c,
+    { _categoryUuidCategory = undefined,
+      _categoryCategoryName = c,
       _categoryParent = undefined,
       _categoryChild = undefined
     }

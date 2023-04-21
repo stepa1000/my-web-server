@@ -33,6 +33,7 @@ import Data.News
 import Data.Proxy
 import Data.Text.Encoding
 import Data.Types
+import Data.UUID
 import Data.User
 import Servant.API
 import Servant.Client
@@ -51,6 +52,7 @@ loginedToBasicAuthData l =
       basicAuthPassword = encodeUtf8 $ passwordLogined l
     }
 
+-- | Server API.
 type API =
   "get_news"
     :> "public"
@@ -59,10 +61,10 @@ type API =
     :> QueryParam "created_since" DaySince
     :> QueryParam "aothor_name" Name
     :> QueryParam "category" Category
+    :> QueryParam "news_uuid" UUID
     :> QueryParam "news_name" NewsName
     :> QueryParam "content" Content
     :> QueryParam "for_string" ForString
-    -- :> QueryParams "published" FlagPublished
     :> QueryParam "sort_by" SortBy
     :> QueryParam "offset" OffSet
     :> QueryParam "limit" Limit
@@ -73,8 +75,8 @@ type API =
       :> QueryParam "created_at" DayAt
       :> QueryParam "created_until" DayUntil
       :> QueryParam "created_since" DaySince
-      -- :> QueryParam "aothor_name" Name
       :> QueryParam "category" Category
+      :> QueryParam "news_uuid" UUID
       :> QueryParam "news_name" NewsName
       :> QueryParam "content" Content
       :> QueryParam "for_string" ForString
@@ -101,7 +103,6 @@ type API =
       :> "new"
       :> BasicAuth "user" UserPublic
       :> ReqBody '[JSON] NewsCreate
-      -- :> QueryParams "new_photos" ByteString
       :> Post '[JSON] News
     :<|> "create_news"
       :> "edit"
@@ -110,8 +111,6 @@ type API =
       :> QueryParam "text" Content
       :> QueryParam "news_new_name" NameNews
       :> QueryParam "category" Category
-      -- :> QueryParams "photos_url" PhotoURL
-      -- :> QueryParams "new_photos" ByteString
       :> QueryParam "public" FlagPublished
       :> QueryParams "photos" Photo
       :> QueryParams "new_photos" Base64
@@ -141,6 +140,7 @@ type GetNewsPublic m =
   Maybe DaySince ->
   Maybe Name ->
   Maybe Category ->
+  Maybe UUID ->
   Maybe NewsName ->
   Maybe Content ->
   Maybe ForString ->
@@ -154,6 +154,7 @@ type GetNewsPrivate m =
   Maybe DayUntil ->
   Maybe DaySince ->
   Maybe Category ->
+  Maybe UUID ->
   Maybe NewsName ->
   Maybe Content ->
   Maybe ForString ->

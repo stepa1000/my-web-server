@@ -11,16 +11,29 @@ import qualified Control.Server.Photo as Photo
 import Data.News
 import Data.Time.Calendar.OrdinalDate
 import Data.Types
+import Data.UUID
 import Data.Vector as V
 import Prelude as P
 
+-- | Handler news.
+--
+-- Contains functions for accessing the database,
+-- a handler for processing photos and obtaining the current time.
 data Handle m = Handle
-  { handlePhoto :: Photo.Handle m,
-    hSearchNews :: Search -> m [News],
-    -- | create new news
+  { -- | Structure with functions to access the database to write, get photos.
+    handlePhoto :: Photo.Handle m,
+    -- | To search for news by the data specified in Search
+    -- and provide unpublished for the user who created it.
+    hSearchNews :: Maybe Login -> Search -> m [News],
+    -- | Create new news.
     hPutNews :: News -> m (),
-    hGetNews :: NewsName -> m (Maybe News),
-    hModifNews :: NewsName -> (News -> News) -> m (),
+    -- | generation UUID for news.
+    hGenUUID :: m UUID,
+    -- | Finds the news by the specified identifier.
+    hGetNews :: UUID -> m (Maybe News),
+    -- | Changes the news by the specified identifier.
+    hModifNews :: UUID -> (News -> News) -> m (),
+    -- | Obtaining the current time.
     hGetDay :: m Day
   }
 
@@ -29,7 +42,7 @@ handleEditNews ::
   Monad m =>
   Handle m ->
   Login ->
-  NameNews -> -- old
+  UUID ->
   Maybe Content ->
   Maybe NameNews -> -- new
   Maybe Category ->
@@ -37,13 +50,13 @@ handleEditNews ::
   Vector Photo ->
   Vector Base64 ->
   m (Maybe News)
-handleEditNews h login nameN content newNameNews category flagP vP vB64 = do
+handleEditNews h login nameUUID content newNameNews category flagP vP vB64 = do
   vnpic <- P.mapM (Photo.hPutPhoto (handlePhoto h)) vB64
-  mn <- (>>= f) <$> hGetNews h nameN
+  mn <- (>>= f) <$> hGetNews h nameUUID
   case mn of
     (Just n) -> do
       let n2 = (editNews n) {photoNews = vP V.++ vnpic}
-      hModifNews h nameN (const n2)
+      hModifNews h nameUUID (const n2)
       return $ Just n2
     _ -> return Nothing
   where
@@ -70,18 +83,24 @@ editFlagPublished :: Maybe FlagPublished -> News -> News
 editFlagPublished (Just f) n = n {publicNews = f}
 editFlagPublished Nothing n = n
 
+-- | Creates and adds news to the database.
+--
+-- Combines different pre-processors for news,
+-- but does not check if the author can create news.
 handleCreateNews :: Monad m => Handle m -> Login -> Name -> NewsCreate -> m News
 handleCreateNews h l name nc = do
   let vbs = newPhotoNewsCreate nc
   vnpic <- P.mapM (Photo.hPutPhoto (handlePhoto h)) vbs
   d <- hGetDay h
-  let news = n d (photoNewsCreate nc V.++ vnpic)
+  nuuid <- hGenUUID h
+  let news = n nuuid d (photoNewsCreate nc V.++ vnpic)
   hPutNews h news
   return news
   where
-    n d vp =
+    n nuuid d vp =
       News
-        { nameNews = nameNewsCreate nc,
+        { uuidNews = nuuid,
+          nameNews = nameNewsCreate nc,
           loginAuthor = l,
           nameAuthor = name,
           dateCreationNews = d,
@@ -93,6 +112,7 @@ handleCreateNews h l name nc = do
 
 handleFind ::
   Handle m ->
+  Maybe Login ->
   Search ->
   m [News]
 handleFind = hSearchNews
