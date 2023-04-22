@@ -32,6 +32,7 @@ import Data.Text.Internal
 import Data.Time.Calendar.OrdinalDate
 import Data.Time.Clock
 import Data.Types
+import Data.UUID
 import Data.Utils
 import Data.Vector as V
 import Data.Yaml as Y
@@ -64,14 +65,26 @@ makeHandle hl conf c =
       SNews.hGetDay = hGetDay
     }
 
-hSearchNews :: Logger.Handle IO -> Integer -> Connection -> Search -> IO [News]
-hSearchNews hl maxLimit c s = do
+-- | Database query. Search for news by filtering and
+-- outputting unpublished news from the user.
+--
+-- The application of the query depends on the
+-- search options and whether a login is specified.
+-- Also apply restrictions on the issuance of the number of news.
+--
+-- The query itself to the database was taken into a separate function
+-- because of the number of options for which the search takes place,
+-- so in the current function in addition to this remain commands
+-- to access the database for the entire query.
+hSearchNews :: Logger.Handle IO -> Integer -> Connection -> Maybe Login -> Search -> IO [News]
+hSearchNews hl maxLimit c mlogin s = do
   Logger.logInfo hl "Search news"
   lm <- (fmap . fmap) newsTToNews $ listStreamingRunSelect c $ select $ searchNews (toInteger <$> mLimit s) (toInteger <$> mOffSet s)
   return $ sortNews (mSortBy s) $ Maybe.catMaybes lm
   where
-    searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_ (filterSearch s) (all_ (dbNews webServerDB))
-    searchNews _ _ = limit_ maxLimit $ offset_ 0 $ filter_ (filterSearch s) (all_ (dbNews webServerDB))
+    searchNews (Just l) (Just o) =
+      limit_ (min maxLimit l) $ offset_ o $ filter_ (filterSearch mlogin s) (all_ (dbNews webServerDB))
+    searchNews _ _ = limit_ maxLimit $ offset_ 0 $ filter_ (filterSearch mlogin s) (all_ (dbNews webServerDB))
 
 hSearchContent :: Integer -> Connection -> Content -> IO [News]
 hSearchContent maxLimit c content = do
@@ -109,9 +122,18 @@ sortNews (Just SBCategory) = sortBy (\a b -> compare (categoryNews a) (categoryN
 sortNews (Just SBCountPhoto) = sortBy (\a b -> compare (V.length $ photoNews a) (V.length $ photoNews b))
 sortNews Nothing = id
 
+-- | Search query for news in the database.
 --
+-- Each search option is converted into a query that checks
+-- the equality of the specified data with the data from the news
+-- in the database, then connect them using the operator "and".
+-- There is a search string in different fields of the news.
+-- It is also possible to publish unpublished news to the user.
+--
+-- To create a filter by conditions in one function.
 filterSearch ::
   CxtFilterSearch f =>
+  Maybe Login ->
   Search ->
   NewsT f ->
   QGenExpr
@@ -123,14 +145,15 @@ filterSearch ::
         )
     )
     Bool
-filterSearch (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' _ _ _) n =
+filterSearch mlogin (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsUUID' mNewsNam' mContent' mForString' mFlagPublished' _ _ _) n =
   filterDaySince mDaySince' n
     &&. filterDayAt mDayAt' n
     &&. filterDayUntil mDayUntil' n
     &&. filterAuthor mAuthor' n
     &&. filterCategory mCategory' n
+    &&. filterUUID mNewsUUID' n
     &&. filterNewsName mNewsNam' n
-    &&. filterFlagPublished mFlagPublished' n
+    &&. filterFlagPublished mlogin mFlagPublished' n
     &&. filterContent mContent' n
     &&. f mForString'
   where
@@ -274,7 +297,7 @@ hGetDay = do
   (UTCTime d _) <- getCurrentTime
   return d
 
-hModifNews :: Logger.Handle IO -> Connection -> NameNews -> (News -> News) -> IO ()
+hModifNews :: Logger.Handle IO -> Connection -> UUID -> (News -> News) -> IO ()
 hModifNews hl c nn f = do
   Logger.logInfo hl "Modify news"
   l <- listStreamingRunSelect c $ lookup_ (dbNews webServerDB) (primaryKey $ nameNewsT nn)
@@ -297,7 +320,7 @@ hModifNews hl c nn f = do
         mn
     [] -> return ()
 
-hGetNews :: Logger.Handle IO -> Connection -> NewsName -> IO (Maybe News)
+hGetNews :: Logger.Handle IO -> Connection -> UUID -> IO (Maybe News)
 hGetNews hl c nn = do
   Logger.logInfo hl "Gut news"
   l <- listStreamingRunSelect c $ lookup_ (dbNews webServerDB) (primaryKey $ nameNewsT nn)

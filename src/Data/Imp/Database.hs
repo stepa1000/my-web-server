@@ -46,14 +46,23 @@ instance Table UserT where
     deriving (Generic, Beamable)
   primaryKey = UserId . _userLogin
 
+-- | Structure describing data in the database for news.
 data NewsT f = NewsT
-  { _newsUuidNews :: Columnar f UUID,
+  { -- | A unique indetificator. To distinguish news from each other. 
+    _newsUuidNews :: Columnar f UUID,
+    -- | News name. May be a match. For identification.
     _newsNewsName :: Columnar f NameNews,
+    -- | Unique. To search for news from the author.
     _newsLoginAuthor :: Columnar f Login,
+    -- | Could be a match. To address the aphthtor.
     _newsNameAuthor :: Columnar f Name,
+    -- | In order to be on trend or to study the history of the publication.
     _newsDateCreation :: Columnar f Day,
+    -- | To view content of interest.
     _newsCategory :: Columnar f Category,
+    -- | The contents of the news. For the self-affirmation of the author.
     _newsContent :: Columnar f Content,
+    -- | 
     _newsPhoto :: Columnar f ByteString,
     _newsPublic :: Columnar f FlagPublished
   }
@@ -62,9 +71,9 @@ data NewsT f = NewsT
 type NewsTId = NewsT Identity
 
 instance Table NewsT where
-  data PrimaryKey NewsT f = NewsId (Columnar f NameNews)
+  data PrimaryKey NewsT f = NewsId (Columnar f UUID)
     deriving (Generic, Beamable)
-  primaryKey = NewsId . _newsNewsName
+  primaryKey = NewsId . _newsUuidNews
 
 data CategoryT f = CategoryT
   { _categoryUuidCategory :: Columnar f UUID,
