@@ -19,7 +19,6 @@ where
 
 import qualified Control.Logger as Logger
 import qualified Control.Server.News as SNews
-import Data.Aeson as A
 import Data.ByteString
 import Data.Foldable
 import Data.Imp.Database
@@ -40,6 +39,7 @@ import Database.Beam as Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
 import Database.Beam.Query.Internal
+import System.Random
 import Prelude as P
 
 -- | Config with a field that stores a value about the
@@ -60,6 +60,7 @@ makeHandle hl conf c =
     { SNews.handlePhoto = ImpSPhoto.makeHandle hl c,
       SNews.hSearchNews = hSearchNews hl (confMaxLimit conf) c,
       SNews.hPutNews = hPutNews hl c,
+      SNews.hGenUUID = randomIO,
       SNews.hGetNews = hGetNews hl c,
       SNews.hModifNews = hModifNews hl c,
       SNews.hGetDay = hGetDay
@@ -164,6 +165,18 @@ filterSearch mlogin (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mN
         ||. filterForStringCategory fs n
     f Nothing = val_ True
 
+filterUUID ::
+  ( HaskellLiteralForQExpr (expr Bool) ~ Bool,
+    SqlEq expr (Columnar f UUID),
+    SqlValable (expr Bool),
+    SqlValable (Columnar f UUID)
+  ) =>
+  Maybe (HaskellLiteralForQExpr (Columnar f UUID)) ->
+  NewsT f ->
+  expr Bool
+filterUUID (Just uu) n = _newsUuidNews n ==. val_ uu
+filterUUID Nothing _ = val_ True
+
 filterForStringContent ::
   (Columnar f Content ~ QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content) =>
   Data.Text.Internal.Text ->
@@ -209,16 +222,18 @@ filterContent' (Just c) n = positionQNested (val_ c) (_newsContent n) /=?. val_ 
 filterContent' Nothing _ = sqlBool_ $ val_ True
 
 filterFlagPublished ::
-  ( HaskellLiteralForQExpr (expr Bool) ~ Bool,
-    SqlEq expr (Columnar f FlagPublished),
-    SqlValable (expr Bool),
-    SqlValable (Columnar f FlagPublished)
+  ( SqlEq (QGenExpr context Postgres s) (Columnar f FlagPublished),
+    SqlEq (QGenExpr context Postgres s) (Columnar f Login),
+    SqlValable (Columnar f FlagPublished),
+    SqlValable (Columnar f Login)
   ) =>
+  Maybe (HaskellLiteralForQExpr (Columnar f Login)) ->
   Maybe (HaskellLiteralForQExpr (Columnar f FlagPublished)) ->
   NewsT f ->
-  expr Bool
-filterFlagPublished (Just fp) n = _newsPublic n ==. val_ fp
-filterFlagPublished Nothing _ = val_ True
+  QGenExpr context Postgres s Bool
+filterFlagPublished (Just l) (Just fp) n =
+  (_newsPublic n ==. val_ fp) &&. (_newsLoginAuthor n ==. val_ l)
+filterFlagPublished _ _ _ = val_ True -- ????????????????????????????
 
 filterNewsName ::
   ( HaskellLiteralForQExpr (expr Bool) ~ Bool,
@@ -300,7 +315,7 @@ hGetDay = do
 hModifNews :: Logger.Handle IO -> Connection -> UUID -> (News -> News) -> IO ()
 hModifNews hl c nn f = do
   Logger.logInfo hl "Modify news"
-  l <- listStreamingRunSelect c $ lookup_ (dbNews webServerDB) (primaryKey $ nameNewsT nn)
+  l <- listStreamingRunSelect c $ lookup_ (dbNews webServerDB) (primaryKey $ uuidNewsT nn)
   case l of
     (x : _) -> do
       _ <-
@@ -323,7 +338,7 @@ hModifNews hl c nn f = do
 hGetNews :: Logger.Handle IO -> Connection -> UUID -> IO (Maybe News)
 hGetNews hl c nn = do
   Logger.logInfo hl "Gut news"
-  l <- listStreamingRunSelect c $ lookup_ (dbNews webServerDB) (primaryKey $ nameNewsT nn)
+  l <- listStreamingRunSelect c $ lookup_ (dbNews webServerDB) (primaryKey $ uuidNewsT nn)
   case l of
     (x : _) -> return $ newsTToNews x
     [] -> return Nothing
@@ -339,51 +354,11 @@ hPutNews hl c n = do
           ]
   return ()
 
--- NewsT for beam
-
-newsTToNews :: NewsTId -> Maybe News
-newsTToNews n = do
-  v <- A.decode $ fromStrict $ _newsPhoto n
-  return $
-    News
-      { nameNews = _newsNewsName n,
-        loginAuthor = _newsLoginAuthor n,
-        nameAuthor = _newsNameAuthor n,
-        dateCreationNews = _newsDateCreation n,
-        categoryNews = _newsCategory n,
-        textNews = _newsContent n,
-        photoNews = v,
-        publicNews = _newsPublic n
-      }
-
-newsToNewsT :: News -> NewsTId
-newsToNewsT n =
-  NewsT
-    { _newsNewsName = nameNews n,
-      _newsLoginAuthor = loginAuthor n,
-      _newsNameAuthor = nameAuthor n,
-      _newsDateCreation = dateCreationNews n,
-      _newsCategory = categoryNews n,
-      _newsContent = textNews n,
-      _newsPhoto = toStrict $ A.encode $ photoNews n,
-      _newsPublic = publicNews n
-    }
-
-nameNewsT :: NameNews -> NewsTId
-nameNewsT nn =
-  NewsT
-    { _newsNewsName = nn,
-      _newsLoginAuthor = undefined,
-      _newsNameAuthor = undefined,
-      _newsDateCreation = undefined,
-      _newsCategory = undefined,
-      _newsContent = undefined,
-      _newsPhoto = undefined,
-      _newsPublic = undefined
-    }
-
 type CxtFilterSearch f =
-  ( Columnar f NameNews
+  ( SqlValable (Columnar f UUID),
+    SqlEq (QGenExpr QValueContext Postgres (QNested (QNested QBaseScope))) (Columnar f UUID),
+    HaskellLiteralForQExpr (Columnar f UUID) ~ UUID,
+    Columnar f NameNews
       ~ QGenExpr
           QValueContext
           Postgres

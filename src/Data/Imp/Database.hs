@@ -16,6 +16,10 @@ module Data.Imp.Database
     CategoryTId,
     CategoryT (..),
     categoryName,
+    newsTToNews,
+    newsToNewsT,
+    nameNewsT,
+    uuidNewsT,
   )
 where
 
@@ -26,6 +30,8 @@ import Data.UUID
 import Data.Vector
 import Database.Beam as Beam
 import Prelude as P
+import Data.Aeson as A
+import Data.News
 
 data UserT f = UserT
   { _userName :: Columnar f Name,
@@ -70,6 +76,64 @@ data NewsT f = NewsT
 
 type NewsTId = NewsT Identity
 
+newsTToNews :: NewsTId -> Maybe News
+newsTToNews n = do
+  v <- A.decode $ fromStrict $ _newsPhoto n
+  return $
+    News
+      { uuidNews = _newsUuidNews n,
+        nameNews = _newsNewsName n,
+        loginAuthor = _newsLoginAuthor n,
+        nameAuthor = _newsNameAuthor n,
+        dateCreationNews = _newsDateCreation n,
+        categoryNews = _newsCategory n,
+        textNews = _newsContent n,
+        photoNews = v,
+        publicNews = _newsPublic n
+      }
+
+newsToNewsT :: News -> NewsTId
+newsToNewsT n =
+  NewsT
+    { _newsUuidNews = uuidNews n,
+      _newsNewsName = nameNews n,
+      _newsLoginAuthor = loginAuthor n,
+      _newsNameAuthor = nameAuthor n,
+      _newsDateCreation = dateCreationNews n,
+      _newsCategory = categoryNews n,
+      _newsContent = textNews n,
+      _newsPhoto = toStrict $ A.encode $ photoNews n,
+      _newsPublic = publicNews n
+    }
+
+uuidNewsT :: UUID -> NewsTId
+uuidNewsT uu = 
+  NewsT
+    { _newsUuidNews = uu,
+      _newsNewsName = undefined,
+      _newsLoginAuthor = undefined,
+      _newsNameAuthor = undefined,
+      _newsDateCreation = undefined,
+      _newsCategory = undefined,
+      _newsContent = undefined,
+      _newsPhoto = undefined,
+      _newsPublic = undefined
+    }
+
+nameNewsT :: NameNews -> NewsTId
+nameNewsT nn =
+  NewsT
+    { _newsUuidNews = undefined,
+      _newsNewsName = nn,
+      _newsLoginAuthor = undefined,
+      _newsNameAuthor = undefined,
+      _newsDateCreation = undefined,
+      _newsCategory = undefined,
+      _newsContent = undefined,
+      _newsPhoto = undefined,
+      _newsPublic = undefined
+    }
+  
 instance Table NewsT where
   data PrimaryKey NewsT f = NewsId (Columnar f UUID)
     deriving (Generic, Beamable)

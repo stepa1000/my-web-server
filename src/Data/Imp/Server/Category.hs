@@ -53,7 +53,8 @@ changeCategory hl c cat cr cnn = do
       Beam.updateTable
         (dbCategory webServerDB)
         ( CategoryT
-            { _categoryCategoryName =
+            { _categoryUuidCategory = toOldValue,
+              _categoryCategoryName =
                 toUpdatedValueMaybe $
                   const $
                     fmap val_ cnn,
