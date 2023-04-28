@@ -28,6 +28,7 @@ import qualified Data.Logger.Impl as ImpLogger
 import Data.Maybe
 import Data.News
 import Data.Types
+import Data.UUID
 import Data.User
 import Data.Vector as V
 import Database.Beam
@@ -123,23 +124,23 @@ getNewsPublicS ::
   MonadIO m =>
   Server.Handle IO ->
   GetNewsPublic m
-getNewsPublicS sh mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mSortBy' mOffSet' mLimit' =
+getNewsPublicS sh mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsUUID' mNewsNam' mContent' mForString' mSortBy' mOffSet' mLimit' =
   liftIO $
     Server.handleServerFind
       sh
       Nothing
-      (Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' Nothing mSortBy' mOffSet' mLimit')
+      (Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsUUID' mNewsNam' mContent' mForString' Nothing mSortBy' mOffSet' mLimit')
 
 getNewsPrivateS ::
   Server.Handle IO ->
   UserPublic ->
   GetNewsPrivate Servant.Handler
-getNewsPrivateS sh bad mDayAt' mDayUntil' mDaySince' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit' =
+getNewsPrivateS sh bad mDayAt' mDayUntil' mDaySince' mCategory' mNewsUUID' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit' =
   handleErrorAuthorization sh $
     Server.handleServerFind
       sh
       (Just bad)
-      (Search mDayAt' mDayUntil' mDaySince' (Just $ nameUser bad) mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit')
+      (Search mDayAt' mDayUntil' mDaySince' (Just $ nameUser bad) mCategory' mNewsUUID' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit')
 
 categoryCreateS ::
   MonadIO m =>
@@ -187,7 +188,7 @@ createNewsNewS sh bad nn = do
 createNewsEdditS ::
   Server.Handle IO ->
   UserPublic ->
-  Maybe NameNews -> -- old
+  Maybe UUID ->
   Maybe Content ->
   Maybe NameNews -> -- new
   Maybe Category ->

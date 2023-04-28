@@ -20,6 +20,7 @@ import Database.Beam.Postgres
 import Database.Beam.Postgres.Conduit as BPC
 import Database.Beam.Query as Beam
 import Database.Beam.Schema.Tables
+import System.Random
 import Prelude as P
 
 -- | implementation for handling database calls related to the catechory table.
@@ -74,7 +75,8 @@ changeCategory hl c cat cr cnn = do
               Beam.updateTable
                 (dbCategory webServerDB)
                 ( CategoryT
-                    { _categoryCategoryName = toOldValue,
+                    { _categoryUuidCategory = toOldValue,
+                      _categoryCategoryName = toOldValue,
                       _categoryParent = toOldValue,
                       _categoryChild = toUpdatedValue $
                         \v -> arrayRemove (_categoryChild v) (val_ cat)
@@ -86,7 +88,8 @@ changeCategory hl c cat cr cnn = do
               Beam.updateTable
                 (dbCategory webServerDB)
                 ( CategoryT
-                    { _categoryCategoryName = toOldValue,
+                    { _categoryUuidCategory = toOldValue,
+                      _categoryCategoryName = toOldValue,
                       _categoryParent = toOldValue,
                       _categoryChild = toUpdatedValue $
                         \v -> concatV_ (_categoryChild v) (val_ $ V.singleton cat)
@@ -96,7 +99,6 @@ changeCategory hl c cat cr cnn = do
           return ()
     )
     (cr >>= (\x -> (,) x <$> mcatT))
-  return ()
 
 -- | Initializing the most common category or the first vertex of the tree.
 --
@@ -110,13 +112,15 @@ initNewsCategory hl c ca = do
   case mc of
     (Just _) -> return ()
     Nothing -> do
+      ruuid <- randomIO
       _ <-
         BPC.runInsert c $
           Beam.insert
             (dbCategory webServerDB)
             ( Beam.insertValues
                 [ CategoryT
-                    { _categoryCategoryName = ca,
+                    { _categoryUuidCategory = ruuid,
+                      _categoryCategoryName = ca,
                       _categoryParent = "",
                       _categoryChild = V.empty
                     }
@@ -138,13 +142,15 @@ createCategory hl c car can = do
         (dbCategory webServerDB)
         (\cat -> _categoryChild cat <-. concatV_ (current_ (_categoryChild cat)) (val_ $ V.singleton can))
         (\cat -> _categoryCategoryName cat ==. val_ car)
+  ruuid <- randomIO
   _ <-
     BPC.runInsert c $
       insert
         (dbCategory webServerDB)
         ( insertValues
             [ CategoryT
-                { _categoryCategoryName = can,
+                { _categoryUuidCategory = ruuid,
+                  _categoryCategoryName = can,
                   _categoryParent = car,
                   _categoryChild = V.empty
                 }

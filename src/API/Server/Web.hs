@@ -107,7 +107,7 @@ type API =
     :<|> "create_news"
       :> "edit"
       :> BasicAuth "user" UserPublic
-      :> QueryParam "news_name" NameNews
+      :> QueryParam "news_uuid" UUID
       :> QueryParam "text" Content
       :> QueryParam "news_new_name" NameNews
       :> QueryParam "category" Category
@@ -173,7 +173,7 @@ type CategoryChange m = Maybe Category -> Maybe Category -> Maybe Category -> m 
 type CreateNewsNew m = NewsCreate -> m News
 
 type CreateNewsEdit m =
-  Maybe NameNews ->
+  Maybe UUID ->
   Maybe Content ->
   Maybe NameNews ->
   Maybe Content ->
