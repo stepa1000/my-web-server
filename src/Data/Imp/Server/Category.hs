@@ -30,13 +30,13 @@ import Prelude as P
 -- to pass the configured functions to the
 -- message processing loop of the client to execute the above described functions.
 withHandle :: Logger.Handle IO -> Connection -> (Category.Handle IO -> IO a) -> IO a
-withHandle hl c g = do
-  _ <- initNewsCategory hl c "General"
+withHandle logger connectDB act = do
+  _ <- initNewsCategory logger connectDB "General"
   g $
     Category.Handle
-      { Category.hGetCategory = fromMaybe (Node "" []) <$> getNewsCategory hl c "General",
-        Category.hChangeCategory = changeCategory hl c,
-        Category.hCreateCategory = createCategory hl c
+      { Category.hGetCategory = fromMaybe (Node "" []) <$> getNewsCategory logger connectDB "General",
+        Category.hChangeCategory = changeCategory logger connectDB,
+        Category.hCreateCategory = createCategory logger connectDB
       }
 
 -- | change the ancestor of a category or name.
@@ -45,12 +45,19 @@ withHandle hl c g = do
 -- updated according to the above mentioned fields.
 --
 -- to improve the hierarchy of topic approximation.
-changeCategory :: Logger.Handle IO -> Connection -> Category -> Maybe Category -> Maybe Category -> IO ()
-changeCategory hl c cat cr cnn = do
-  Logger.logInfo hl "Change category"
-  mcatT <- getCategory hl c cat
+changeCategory ::
+  Logger.Handle IO ->
+  Connection ->
+  -- | Old category
+  Category ->
+  Maybe Category ->
+  Maybe Category ->
+  IO ()
+changeCategory logger connectDB categoryOld mCategoryParent mCategoryName = do
+  Logger.logInfo logger "Change category"
+  mcategoryT <- getCategory logger connectDB mCategoryParent
   _ <-
-    BPC.runUpdate c $
+    BPC.runUpdate connectDB $
       Beam.updateTable
         (dbCategory webServerDB)
         ( CategoryT
@@ -58,20 +65,20 @@ changeCategory hl c cat cr cnn = do
               _categoryCategoryName =
                 toUpdatedValueMaybe $
                   const $
-                    fmap val_ cnn,
+                    fmap val_ mCategoryName,
               _categoryParent =
                 toUpdatedValueMaybe $
                   const $
-                    fmap val_ cr,
+                    fmap val_ mCategoryParent,
               _categoryChild = toOldValue
             }
         )
-        (\cat2 -> _categoryCategoryName cat2 ==. val_ cat)
+        (\cat2 -> _categoryCategoryName cat2 ==. val_ categoryOld)
   P.mapM_
-    ( \(p, catT) ->
+    ( \(categoryParent, categoryT) ->
         do
           _ <-
-            BPC.runUpdate c $
+            BPC.runUpdate connectDB $
               Beam.updateTable
                 (dbCategory webServerDB)
                 ( CategoryT
@@ -79,12 +86,12 @@ changeCategory hl c cat cr cnn = do
                       _categoryCategoryName = toOldValue,
                       _categoryParent = toOldValue,
                       _categoryChild = toUpdatedValue $
-                        \v -> arrayRemove (_categoryChild v) (val_ cat)
+                        \v -> arrayRemove (_categoryChild v) (val_ categoryOld)
                     }
                 )
-                (\cat2 -> _categoryCategoryName cat2 ==. val_ (_categoryParent catT))
+                (\cat2 -> _categoryCategoryName cat2 ==. val_ (_categoryParent categoryT))
           _ <-
-            BPC.runUpdate c $
+            BPC.runUpdate connectDB $
               Beam.updateTable
                 (dbCategory webServerDB)
                 ( CategoryT
@@ -92,13 +99,13 @@ changeCategory hl c cat cr cnn = do
                       _categoryCategoryName = toOldValue,
                       _categoryParent = toOldValue,
                       _categoryChild = toUpdatedValue $
-                        \v -> concatV_ (_categoryChild v) (val_ $ V.singleton cat)
+                        \v -> concatV_ (_categoryChild v) (val_ $ V.singleton categoryOld)
                     }
                 )
-                (\cat2 -> _categoryCategoryName cat2 ==. val_ p)
+                (\cat2 -> _categoryCategoryName cat2 ==. val_ categoryParent)
           return ()
     )
-    (cr >>= (\x -> (,) x <$> mcatT))
+    (mCategoryParrent >>= (\x -> (,) x <$> mcategoryT))
 
 -- | Initializing the most common category or the first vertex of the tree.
 --

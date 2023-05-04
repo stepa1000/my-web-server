@@ -57,54 +57,54 @@ makeHandle hl config c =
     }
 
 hCatchErrorAuthorization :: Logger.Handle IO -> IO a -> (ServerAuthorization.ErrorAuthorization -> IO a) -> IO a
-hCatchErrorAuthorization hl act react = do
-  Logger.logInfo hl "Catch error authorization"
+hCatchErrorAuthorization logger act react = do
+  Logger.logInfo logger "Catch error authorization"
   catch act react
 
 hCreatorNewsCheckFail :: Logger.Handle IO -> IO ()
-hCreatorNewsCheckFail hl = do
-  Logger.logError hl "Creator news check"
+hCreatorNewsCheckFail logger = do
+  Logger.logError logger "Creator news check"
   throwM ServerAuthorization.ErrorCreatorNewsCheck
 
 hAdminCheckFail :: Logger.Handle IO -> IO ()
-hAdminCheckFail hl = do
-  Logger.logError hl "Admin check"
+hAdminCheckFail logger = do
+  Logger.logError logger "Admin check"
   throwM ServerAuthorization.ErrorAdminCheck
 
 hAuthorizationFail :: Logger.Handle IO -> IO ()
-hAuthorizationFail hl = do
-  Logger.logError hl "Authorization"
+hAuthorizationFail logger = do
+  Logger.logError logger "Authorization"
   throwM ServerAuthorization.ErrorAuthorization
 
 hGetAccount :: Logger.Handle IO -> Connection -> Login -> IO (Maybe UserPublic)
-hGetAccount hl c login = do
-  Logger.logInfo hl "Get account"
-  l <- listStreamingRunSelect c $ lookup_ (dbUser webServerDB) (primaryKey $ loginUserT login)
-  return (userTToUserPublic <$> listToMaybe l)
+hGetAccount logger connectDB login = do
+  Logger.logInfo logger "Get account"
+  lUser <- listStreamingRunSelect connectDB $ lookup_ (dbUser webServerDB) (primaryKey $ loginUserT login)
+  return (userTToUserPublic <$> listToMaybe lUser)
 
 hCheckAccount :: Logger.Handle IO -> Connection -> Login -> Password -> IO (Maybe UserPublic)
-hCheckAccount hl c login p = do
-  Logger.logInfo hl "Check account"
-  l <- listStreamingRunSelect c $ lookup_ (dbUser webServerDB) (primaryKey $ loginUserT login)
+hCheckAccount logger connectionDB login password = do
+  Logger.logInfo logger "Check account"
+  l <- listStreamingRunSelect connectionDB $ lookup_ (dbUser webServerDB) (primaryKey $ loginUserT login)
   case l of
     (x : _) -> do
       let px = _userPasswordHash x
-      if px == getHash p
+      if px == getHash password
         then return $ Just $ userTToUserPublic x
         else return Nothing
     [] -> return Nothing
 
 hUserList :: Logger.Handle IO -> Connection -> Config -> OffSet -> Limit -> IO [UserPublic]
-hUserList hl conn config offset limit' = do
-  Logger.logInfo hl "Get user list"
-  lut <-
-    listStreamingRunSelect conn $
+hUserList logger connectionDB config offset limit' = do
+  Logger.logInfo logger "Get user list"
+  lUserPublic <-
+    listStreamingRunSelect connectionDB $
       select $
         limit_ (toInteger limit) $
           offset_ (toInteger offset) $
             orderBy_ (asc_ . _userLogin) $
               all_ (dbUser webServerDB)
-  return $ fmap userTToUserPublic lut
+  return $ fmap userTToUserPublic lUserPublic
   where
     limit =
       if (limit' > confLimit config) || (limit' <= 0)
@@ -118,24 +118,24 @@ userTToUserPublic ::
   ) =>
   UserT f ->
   UserPublic
-userTToUserPublic ut =
+userTToUserPublic userT =
   UserPublic
-    { nameUser = _userName ut,
-      loginUser = _userLogin ut,
-      dateCreationUser = _userDateCreation ut,
-      adminUser = _userAdmin ut,
-      makeNewsUser = _userMakeNews ut
+    { nameUser = _userName userT,
+      loginUser = _userLogin userT,
+      dateCreationUser = _userDateCreation userT,
+      adminUser = _userAdmin userT,
+      makeNewsUser = _userMakeNews userT
     }
 
 hCreateUser :: Logger.Handle IO -> Connection -> Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> IO UserPublic
-hCreateUser hl c name login password flagMN flagA = do
-  Logger.logInfo hl "Create user"
-  l <- listStreamingRunSelect c $ lookup_ (dbUser webServerDB) (primaryKey $ loginUserT login)
-  case l of
+hCreateUser logger connectDB name login password flagMNews flagAdmin = do
+  Logger.logInfo logger "Create user"
+  lUserT <- listStreamingRunSelect connectDB $ lookup_ (dbUser webServerDB) (primaryKey $ loginUserT login)
+  case lUserT of
     [] -> do
       (UTCTime day _) <- getCurrentTime
       _ <-
-        BPC.runInsert c $
+        BPC.runInsert connectDB $
           insert (dbUser webServerDB) $
             insertValues
               [ UserT
@@ -143,8 +143,8 @@ hCreateUser hl c name login password flagMN flagA = do
                     _userLogin = login,
                     _userPasswordHash = getHash password,
                     _userDateCreation = day,
-                    _userAdmin = flagA,
-                    _userMakeNews = flagMN
+                    _userAdmin = flagAdmin,
+                    _userMakeNews = flagMNews
                   }
               ]
       return $
@@ -152,8 +152,8 @@ hCreateUser hl c name login password flagMN flagA = do
           { nameUser = name,
             loginUser = login,
             dateCreationUser = day,
-            adminUser = flagA,
-            makeNewsUser = flagMN
+            adminUser = flagAdmin,
+            makeNewsUser = flagMNews
           }
     (x : _) -> do
       return $

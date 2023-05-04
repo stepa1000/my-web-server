@@ -28,16 +28,16 @@ import Prelude as P
 --
 -- Migration is needed to synchronize the database with the code accessing the database.
 runMigrationFiles :: ConnectInfo -> [(ScriptName, FilePath)] -> IO [MigrationResult String]
-runMigrationFiles ci lcnfp = do
-  c <- connect ci
-  im <- runInitMigration c
-  lm <-
+runMigrationFiles info lScriptPath = do
+  connectDB <- connect info
+  initMigration <- runInitMigration connectDB
+  lOutMigration <-
     mapM
-      ( \(sn, fp) -> do
-          runMigrationFile c sn fp
+      ( \(name, path) -> do
+          runMigrationFile connectDB name path
       )
-      lcnfp
-  return $ im : lm
+      lScriptPath
+  return $ initMigration : lOutMigration
 
 -- | Checks the initial migration
 --
@@ -45,10 +45,10 @@ runMigrationFiles ci lcnfp = do
 -- it applies the initial state to the database,
 -- for subsequent migrations.
 runInitMigration :: Connection -> IO (MigrationResult String)
-runInitMigration c = do
-  me <- runMigration c defaultOptions $ MigrationValidation MigrationInitialization
-  case me of
-    (MigrationError _) -> runMigration c defaultOptions MigrationInitialization
+runInitMigration connectDB = do
+  outMigration <- runMigration connectDB defaultOptions $ MigrationValidation MigrationInitialization
+  case outMigration of
+    (MigrationError _) -> runMigration connectDB defaultOptions MigrationInitialization
     a -> return a
 
 -- | Checking the unit migration
@@ -59,30 +59,30 @@ runInitMigration c = do
 --
 -- To be able to create partial migrations to the database for different versions.
 runMigrationFile :: Connection -> ScriptName -> FilePath -> IO (MigrationResult String)
-runMigrationFile c sn fp = do
-  _ <- putStrLn $ "Check migration: " ++ sn
-  me <- runMigration c defaultOptions $ MigrationValidation $ MigrationFile sn fp
-  case me of
+runMigrationFile connectDB script path = do
+  _ <- putStrLn $ "Check migration: " ++ script
+  outMigration <- runMigration connectDB defaultOptions $ MigrationValidation $ MigrationFile script path
+  case outMigration of
     (MigrationError _) -> do
       _ <- putStrLn "Migration applies"
-      runMigration c defaultOptions $ MigrationFile sn fp
+      runMigration connectDB defaultOptions $ MigrationFile script path
     a -> do
       _ <- putStrLn "Migration skip"
       return a
 
 -- | Combining the name of the veil and the path to it into one tuple.
-pathUname :: String -> String -> (String, String)
-pathUname pth n = (n, pth ++ n)
+unionPathName :: String -> String -> (String, String)
+unionPathName path name = (name, path ++ name)
 
 -- | Applying all available migrations to initialize from a clean database to the current version.
 --
 -- The body of the function lists the names of the sql-files and specifies the path to the file.
 migrationAll :: ConnectInfo -> IO [MigrationResult String]
-migrationAll ci = do
-  lf <- getDirectoryContents "./sql-migration/"
+migrationAll info = do
+  fails <- getDirectoryContents "./sql-migration/"
   runMigrationFiles
-    ci
-    (pathUname "./sql-migration/" <$> (LK.sort (read @Int . takeWhile isDigit) . delete "." . delete "..") lf)
+    info
+    (unionPathName "./sql-migration/" <$> (LK.sort (read @Int . takeWhile isDigit) . delete "." . delete "..") fails)
 
 migrationMain :: IO [MigrationResult String]
 migrationMain = do
