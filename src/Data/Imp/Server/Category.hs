@@ -32,7 +32,7 @@ import Prelude as P
 withHandle :: Logger.Handle IO -> Connection -> (Category.Handle IO -> IO a) -> IO a
 withHandle logger connectDB act = do
   _ <- initNewsCategory logger connectDB "General"
-  g $
+  act $
     Category.Handle
       { Category.hGetCategory = fromMaybe (Node "" []) <$> getNewsCategory logger connectDB "General",
         Category.hChangeCategory = changeCategory logger connectDB,
@@ -55,7 +55,7 @@ changeCategory ::
   IO ()
 changeCategory logger connectDB categoryOld mCategoryParent mCategoryName = do
   Logger.logInfo logger "Change category"
-  mcategoryT <- getCategory logger connectDB mCategoryParent
+  mcategoryT <- getCategory logger connectDB categoryOld
   _ <-
     BPC.runUpdate connectDB $
       Beam.updateTable
@@ -105,7 +105,7 @@ changeCategory logger connectDB categoryOld mCategoryParent mCategoryName = do
                 (\cat2 -> _categoryCategoryName cat2 ==. val_ categoryParent)
           return ()
     )
-    (mCategoryParrent >>= (\x -> (,) x <$> mcategoryT))
+    (mCategoryParent >>= (\x -> (,) x <$> mcategoryT))
 
 -- | Initializing the most common category or the first vertex of the tree.
 --
@@ -114,20 +114,20 @@ changeCategory logger connectDB categoryOld mCategoryParent mCategoryName = do
 -- for convenience. The vertex will always be checked before
 -- configuring the handler and will always have the same name.
 initNewsCategory :: Logger.Handle IO -> Connection -> Category -> IO ()
-initNewsCategory hl c ca = do
-  mc <- getNewsCategory hl c ca
-  case mc of
+initNewsCategory logger connectDB category = do
+  maybeCategory <- getNewsCategory logger connectDB category
+  case maybeCategory of
     (Just _) -> return ()
     Nothing -> do
       ruuid <- randomIO
       _ <-
-        BPC.runInsert c $
+        BPC.runInsert connectDB $
           Beam.insert
             (dbCategory webServerDB)
             ( Beam.insertValues
                 [ CategoryT
                     { _categoryUuidCategory = ruuid,
-                      _categoryCategoryName = ca,
+                      _categoryCategoryName = category,
                       _categoryParent = "",
                       _categoryChild = V.empty
                     }
@@ -141,24 +141,27 @@ initNewsCategory hl c ca = do
 --
 -- To create an hierarchy of configurations.
 createCategory :: Logger.Handle IO -> Connection -> Category -> Category -> IO ()
-createCategory hl c car can = do
-  Logger.logInfo hl "Create category"
+createCategory logger connectDB categoryRoot vCategoryName = do
+  Logger.logInfo logger "Create category"
   _ <-
-    BPC.runUpdate c $
+    BPC.runUpdate connectDB $
       Beam.update
         (dbCategory webServerDB)
-        (\cat -> _categoryChild cat <-. concatV_ (current_ (_categoryChild cat)) (val_ $ V.singleton can))
-        (\cat -> _categoryCategoryName cat ==. val_ car)
+        ( \cat ->
+            _categoryChild cat
+              <-. concatV_ (current_ (_categoryChild cat)) (val_ $ V.singleton vCategoryName)
+        )
+        (\cat -> _categoryCategoryName cat ==. val_ categoryRoot)
   ruuid <- randomIO
   _ <-
-    BPC.runInsert c $
+    BPC.runInsert connectDB $
       insert
         (dbCategory webServerDB)
         ( insertValues
             [ CategoryT
                 { _categoryUuidCategory = ruuid,
-                  _categoryCategoryName = can,
-                  _categoryParent = car,
+                  _categoryCategoryName = vCategoryName,
+                  _categoryParent = categoryRoot,
                   _categoryChild = V.empty
                 }
             ]
@@ -173,16 +176,16 @@ createCategory hl c car can = do
 -- it is necessary for a holistic view of the tree structure and
 -- easy viewing and sending to the server's clients.
 getNewsCategory :: Logger.Handle IO -> Connection -> Category -> IO (Maybe NewsCategory)
-getNewsCategory hl c ca = do
-  mc <- getCategory hl c ca
-  case mc of
-    (Just catT) -> do
-      vc <- V.catMaybes <$> P.mapM (getNewsCategory hl c) (_categoryChild catT)
-      return $ Just $ Node ca (V.toList vc)
+getNewsCategory logger connectDB category = do
+  maybeCategory <- getCategory logger connectDB category
+  case maybeCategory of
+    (Just categoryT) -> do
+      vCategory <- V.catMaybes <$> P.mapM (getNewsCategory logger connectDB) (_categoryChild categoryT)
+      return $ Just $ Node category (V.toList vCategory)
     Nothing -> return Nothing
 
 getCategory :: Logger.Handle IO -> Connection -> Category -> IO (Maybe CategoryTId)
-getCategory hl c ca = do
-  Logger.logInfo hl "Get category parrent"
-  l <- listStreamingRunSelect c $ lookup_ (dbCategory webServerDB) (primaryKey $ categoryName ca)
+getCategory logger connectDB category = do
+  Logger.logInfo logger "Get category parrent"
+  l <- listStreamingRunSelect connectDB $ lookup_ (dbCategory webServerDB) (primaryKey $ categoryName category)
   return $ listToMaybe l

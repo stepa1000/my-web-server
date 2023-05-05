@@ -52,16 +52,16 @@ handleServerFind ::
   Search ->
   m [News]
 handleServerFind
-  h
+  hServer
   Nothing
-  s =
+  search =
     do
-      ServerNews.handleFind (handleNews h) Nothing $
-        s {mFlagPublished = Just True}
+      ServerNews.handleFind (handleNews hServer) Nothing $
+        search {mFlagPublished = Just True}
 handleServerFind
-  h
+  hServer
   muserPublic
-  s = ServerNews.handleFind (handleNews h) (loginUser <$> muserPublic) s
+  search = ServerNews.handleFind (handleNews hServer) (loginUser <$> muserPublic) search
 
 handleCategoryCreate ::
   Monad m =>
@@ -70,17 +70,17 @@ handleCategoryCreate ::
   Category -> -- is root
   Category ->
   m NewsCategory
-handleCategoryCreate h userpublic mc c = do
+handleCategoryCreate hServer userpublic categoryRoot category = do
   case userpublic of
     (UserPublic _ _ _ True _) -> do
-      ServerCategory.hCreateCategory (handleCategory h) mc c
-      ServerCategory.hGetCategory (handleCategory h)
+      ServerCategory.hCreateCategory (handleCategory hServer) categoryRoot category
+      ServerCategory.hGetCategory (handleCategory hServer)
     _ -> do
-      ServerAuthorization.hAdminCheckFail (handleAuthorization h)
-      ServerCategory.hGetCategory (handleCategory h)
+      ServerAuthorization.hAdminCheckFail (handleAuthorization hServer)
+      ServerCategory.hGetCategory (handleCategory hServer)
 
 handleCategoryGet :: Handle m -> m NewsCategory
-handleCategoryGet h = ServerCategory.hGetCategory (handleCategory h)
+handleCategoryGet hServer = ServerCategory.hGetCategory (handleCategory hServer)
 
 handleCategoryChange ::
   Monad m =>
@@ -90,29 +90,29 @@ handleCategoryChange ::
   Maybe Category ->
   Maybe Category ->
   m NewsCategory
-handleCategoryChange h userpublic cname croot cnewname = do
+handleCategoryChange hServer userpublic categoryName categoryRoot categoryNewName = do
   case userpublic of
     (UserPublic _ _ _ True _) -> do
-      ServerCategory.hChangeCategory (handleCategory h) cname croot cnewname
-      ServerCategory.hGetCategory (handleCategory h)
+      ServerCategory.hChangeCategory (handleCategory hServer) categoryName categoryRoot categoryNewName
+      ServerCategory.hGetCategory (handleCategory hServer)
     _ -> do
-      ServerAuthorization.hAdminCheckFail (handleAuthorization h)
-      ServerCategory.hGetCategory (handleCategory h)
+      ServerAuthorization.hAdminCheckFail (handleAuthorization hServer)
+      ServerCategory.hGetCategory (handleCategory hServer)
 
 handleCreateNewsNew :: Monad m => Handle m -> UserPublic -> NewsCreate -> m (Maybe News)
-handleCreateNewsNew h userpublic nc = do
+handleCreateNewsNew hServer userpublic newsCreate = do
   case userpublic of
     (UserPublic name login _ _ True) -> do
-      Just <$> ServerNews.handleCreateNews (handleNews h) login name nc
+      Just <$> ServerNews.handleCreateNews (handleNews hServer) login name newsCreate
     _ -> do
-      ServerAuthorization.hCreatorNewsCheckFail (handleAuthorization h)
+      ServerAuthorization.hCreatorNewsCheckFail (handleAuthorization hServer)
       return Nothing
 
 handleServerEditNews ::
   Monad m =>
   Handle m ->
   UserPublic ->
-  UUID -> -- old
+  UUID ->
   Maybe Content ->
   Maybe NameNews -> -- new
   Maybe Category ->
@@ -120,12 +120,12 @@ handleServerEditNews ::
   Vector Photo ->
   Vector Base64 ->
   m (Maybe News)
-handleServerEditNews h userpublic nUUID mContent' mNameNews mCategory' mFlagP vPh vB64 = do
+handleServerEditNews hServer userpublic nUUID mContent' mNameNews mCategory' mFlagPub vPhoto vBase64 = do
   case userpublic of
-    (UserPublic _ lu _ _ True) -> do
-      ServerNews.handleEditNews (handleNews h) lu nUUID mContent' mNameNews mCategory' mFlagP vPh vB64
+    (UserPublic _ login _ _ True) -> do
+      ServerNews.handleEditNews (handleNews hServer) login nUUID mContent' mNameNews mCategory' mFlagPub vPhoto vBase64
     _ -> do
-      ServerAuthorization.hCreatorNewsCheckFail (handleAuthorization h)
+      ServerAuthorization.hCreatorNewsCheckFail (handleAuthorization hServer)
       return Nothing
 
 handleUserCreate ::
@@ -138,20 +138,20 @@ handleUserCreate ::
   FlagMakeNews ->
   FlagAdmin ->
   m (Maybe UserPublic)
-handleUserCreate h userpublic name login password fMakeNews fAdmin = do
+handleUserCreate hServer userpublic name login password flagMakeNews flagAdmin = do
   case userpublic of
     (UserPublic _ _ _ True _) -> do
-      u <- ServerAuthorization.hCreateUser (handleAuthorization h) name login password fMakeNews fAdmin
-      return $ Just u
+      vUser <- ServerAuthorization.hCreateUser (handleAuthorization hServer) name login password flagMakeNews flagAdmin
+      return $ Just vUser
     _ -> do
-      ServerAuthorization.hAdminCheckFail (handleAuthorization h)
+      ServerAuthorization.hAdminCheckFail (handleAuthorization hServer)
       return Nothing
 
 handleUserList :: Monad m => Handle m -> OffSet -> Limit -> m [UserPublic]
-handleUserList h offset limit = do
-  Logger.logInfo (handleLogger h) "call handleUserList"
-  ServerAuthorization.hUserList (handleAuthorization h) offset limit
+handleUserList hServer offset limit = do
+  Logger.logInfo (handleLogger hServer) "call handleUserList"
+  ServerAuthorization.hUserList (handleAuthorization hServer) offset limit
 
 handlePhotoGet :: Handle m -> Photo -> m (Maybe Base64)
-handlePhotoGet h =
-  ServerPhoto.hGetPhoto (ServerNews.handlePhoto $ handleNews h)
+handlePhotoGet hServer =
+  ServerPhoto.hGetPhoto (ServerNews.handlePhoto $ handleNews hServer)

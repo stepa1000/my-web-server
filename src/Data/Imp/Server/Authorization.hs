@@ -44,16 +44,16 @@ newtype Config = Config
   deriving anyclass (ToJSON, FromJSON)
 
 makeHandle :: Logger.Handle IO -> Config -> Connection -> ServerAuthorization.Handle IO
-makeHandle hl config c =
+makeHandle logger config c =
   ServerAuthorization.Handle
-    { ServerAuthorization.hCreateUser = hCreateUser hl c,
-      ServerAuthorization.hUserList = hUserList hl c config,
-      ServerAuthorization.hCheckAccount = hCheckAccount hl c,
-      ServerAuthorization.hGetAccount = hGetAccount hl c,
-      ServerAuthorization.hAuthorizationFail = hAuthorizationFail hl,
-      ServerAuthorization.hAdminCheckFail = hAdminCheckFail hl,
-      ServerAuthorization.hCreatorNewsCheckFail = hCreatorNewsCheckFail hl,
-      ServerAuthorization.hCatchErrorAuthorization = hCatchErrorAuthorization hl
+    { ServerAuthorization.hCreateUser = hCreateUser logger c,
+      ServerAuthorization.hUserList = hUserList logger c config,
+      ServerAuthorization.hCheckAccount = hCheckAccount logger c,
+      ServerAuthorization.hGetAccount = hGetAccount logger c,
+      ServerAuthorization.hAuthorizationFail = hAuthorizationFail logger,
+      ServerAuthorization.hAdminCheckFail = hAdminCheckFail logger,
+      ServerAuthorization.hCreatorNewsCheckFail = hCreatorNewsCheckFail logger,
+      ServerAuthorization.hCatchErrorAuthorization = hCatchErrorAuthorization logger
     }
 
 hCatchErrorAuthorization :: Logger.Handle IO -> IO a -> (ServerAuthorization.ErrorAuthorization -> IO a) -> IO a

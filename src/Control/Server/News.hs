@@ -50,14 +50,14 @@ handleEditNews ::
   Vector Photo ->
   Vector Base64 ->
   m (Maybe News)
-handleEditNews h login nameUUID content newNameNews category flagP vP vB64 = do
-  vnpic <- P.mapM (Photo.hPutPhoto (handlePhoto h)) vB64
-  mn <- (>>= f) <$> hGetNews h nameUUID
-  case mn of
-    (Just n) -> do
-      let n2 = (editNews n) {photoNews = vP V.++ vnpic}
-      hModifNews h nameUUID (const n2)
-      return $ Just n2
+handleEditNews hNews login nameUUID content newNameNews category flagPub vPhoto vBase64 = do
+  vNamePic <- P.mapM (Photo.hPutPhoto (handlePhoto hNews)) vBase64
+  mNews <- (>>= f) <$> hGetNews hNews nameUUID
+  case mNews of
+    (Just news) -> do
+      let news2 = (editNews news) {photoNews = vPhoto V.++ vNamePic}
+      hModifNews hNews nameUUID (const news2)
+      return $ Just news2
     _ -> return Nothing
   where
     f n = guard (loginAuthor n == login) >> return n
@@ -65,49 +65,49 @@ handleEditNews h login nameUUID content newNameNews category flagP vP vB64 = do
       editNewsContent content
         . editNewsNameNews newNameNews
         . editNewsCategory category
-        . editFlagPublished flagP
+        . editFlagPublished flagPub
 
 editNewsContent :: Maybe Content -> News -> News
-editNewsContent (Just c) n = n {categoryNews = c}
-editNewsContent Nothing n = n
+editNewsContent (Just content) news = news {categoryNews = content}
+editNewsContent Nothing news = news
 
 editNewsNameNews :: Maybe NameNews -> News -> News
-editNewsNameNews (Just nn) n = n {nameNews = nn}
-editNewsNameNews _ n = n
+editNewsNameNews (Just nameNews') news = news {nameNews = nameNews'}
+editNewsNameNews _ news = news
 
 editNewsCategory :: Maybe Category -> News -> News
-editNewsCategory (Just c) n = n {categoryNews = c}
-editNewsCategory Nothing n = n
+editNewsCategory (Just category) news = news {categoryNews = category}
+editNewsCategory Nothing news = news
 
 editFlagPublished :: Maybe FlagPublished -> News -> News
-editFlagPublished (Just f) n = n {publicNews = f}
-editFlagPublished Nothing n = n
+editFlagPublished (Just flagPub) news = news {publicNews = flagPub}
+editFlagPublished Nothing news = news
 
 -- | Creates and adds news to the database.
 --
 -- Combines different pre-processors for news,
 -- but does not check if the author can create news.
 handleCreateNews :: Monad m => Handle m -> Login -> Name -> NewsCreate -> m News
-handleCreateNews h l name nc = do
-  let vbs = newPhotoNewsCreate nc
-  vnpic <- P.mapM (Photo.hPutPhoto (handlePhoto h)) vbs
-  d <- hGetDay h
-  nuuid <- hGenUUID h
-  let news = n nuuid d (photoNewsCreate nc V.++ vnpic)
-  hPutNews h news
+handleCreateNews hNews login name newsCreate = do
+  let vBase64 = newPhotoNewsCreate newsCreate
+  vNamePic <- P.mapM (Photo.hPutPhoto (handlePhoto hNews)) vBase64
+  day <- hGetDay hNews
+  nuuid <- hGenUUID hNews
+  let news = makeNews' nuuid day (photoNewsCreate newsCreate V.++ vNamePic)
+  hPutNews hNews news
   return news
   where
-    n nuuid d vp =
+    makeNews' nuuid day vpic =
       News
         { uuidNews = nuuid,
-          nameNews = nameNewsCreate nc,
-          loginAuthor = l,
+          nameNews = nameNewsCreate newsCreate,
+          loginAuthor = login,
           nameAuthor = name,
-          dateCreationNews = d,
-          categoryNews = categoryNewsCreate nc,
-          textNews = textNewsCreate nc,
-          photoNews = vp,
-          publicNews = publicNewsCreate nc
+          dateCreationNews = day,
+          categoryNews = categoryNewsCreate newsCreate,
+          textNews = textNewsCreate newsCreate,
+          photoNews = vpic,
+          publicNews = publicNewsCreate newsCreate
         }
 
 handleFind ::
