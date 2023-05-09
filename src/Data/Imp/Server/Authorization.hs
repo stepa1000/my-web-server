@@ -44,12 +44,12 @@ newtype Config = Config
   deriving anyclass (ToJSON, FromJSON)
 
 makeHandle :: Logger.Handle IO -> Config -> Connection -> ServerAuthorization.Handle IO
-makeHandle logger config c =
+makeHandle logger config connectDB =
   ServerAuthorization.Handle
-    { ServerAuthorization.hCreateUser = hCreateUser logger c,
-      ServerAuthorization.hUserList = hUserList logger c config,
-      ServerAuthorization.hCheckAccount = hCheckAccount logger c,
-      ServerAuthorization.hGetAccount = hGetAccount logger c,
+    { ServerAuthorization.hCreateUser = hCreateUser logger connectDB,
+      ServerAuthorization.hUserList = hUserList logger connectDB config,
+      ServerAuthorization.hCheckAccount = hCheckAccount logger connectDB,
+      ServerAuthorization.hGetAccount = hGetAccount logger connectDB,
       ServerAuthorization.hAuthorizationFail = hAuthorizationFail logger,
       ServerAuthorization.hAdminCheckFail = hAdminCheckFail logger,
       ServerAuthorization.hCreatorNewsCheckFail = hCreatorNewsCheckFail logger,

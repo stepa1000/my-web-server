@@ -26,40 +26,40 @@ import System.Random
 import Prelude as P
 
 makeHandle :: Logger.Handle IO -> Connection -> SPhoto.Handle IO
-makeHandle hl c =
+makeHandle logger connectDB =
   SPhoto.Handle
-    { SPhoto.hPutPhoto = hPutPhoto hl c,
-      SPhoto.hGetPhoto = hGetPhoto hl c
+    { SPhoto.hPutPhoto = hPutPhoto logger connectDB,
+      SPhoto.hGetPhoto = hGetPhoto logger connectDB
     }
 
 hGetPhoto :: Logger.Handle IO -> Connection -> Photo -> IO (Maybe Base64)
-hGetPhoto hl c p' = do
-  Logger.logInfo hl "Get photo"
-  l <-
+hGetPhoto logger connectDB photo = do
+  Logger.logInfo logger "Get photo"
+  lPhoto <-
     join . maybeToList
       <$> traverse
-        ( \p ->
-            listStreamingRunSelect c $
+        ( \photo' ->
+            listStreamingRunSelect connectDB $
               lookup_
                 (dbPhoto webServerDB)
                 ( primaryKey $
                     PhotoT
-                      { _photoUuidPhoto = p,
+                      { _photoUuidPhoto = photo',
                         _photoData = undefined
                       }
                 )
         )
-        (fromText p')
-  return (_photoData <$> listToMaybe l)
+        (fromText photo)
+  return (_photoData <$> listToMaybe lPhoto)
 
 hPutPhoto :: Logger.Handle IO -> Connection -> Base64 -> IO Photo
-hPutPhoto hl c b = do
-  Logger.logInfo hl "Put photo"
-  u <- randomIO @UUID
+hPutPhoto logger connectDB base64 = do
+  Logger.logInfo logger "Put photo"
+  uuID <- randomIO @UUID
   _ <-
-    BPC.runInsert c $
+    BPC.runInsert connectDB $
       insert (dbPhoto webServerDB) $
         insertValues
-          [ PhotoT u b
+          [ PhotoT uuID base64
           ]
-  return $ toText u
+  return $ toText uuID

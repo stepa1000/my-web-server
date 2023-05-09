@@ -170,9 +170,9 @@ filterSearch mlogin (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mN
   where
     f (Just forString) =
       filterForStringName forString news
-        ||. filterForStringContent fs news
-        ||. filerForStringAuthor fs news
-        ||. filterForStringCategory fs news
+        ||. filterForStringContent forString news
+        ||. filerForStringAuthor forString news
+        ||. filterForStringCategory forString news
     f Nothing = val_ True
 
 filterUUID ::
@@ -254,7 +254,7 @@ filterNewsName ::
   Maybe (HaskellLiteralForQExpr (Columnar f NameNews)) ->
   NewsT f ->
   expr Bool
-filterNewsName (Just nameNews) news = _newsNewsName news ==. val_ nameNews
+filterNewsName (Just nameNews') news = _newsNewsName news ==. val_ nameNews'
 filterNewsName Nothing _ = val_ True
 
 filterCategory ::
@@ -336,7 +336,7 @@ hModifNews logger connectDB uuID act = do
       let mNews = act <$> newsTToNews newsT
       traverse_
         ( \n -> do
-            BPC.runInsert c $
+            BPC.runInsert connectDB $
               Beam.insert (dbNews webServerDB) $
                 insertValues
                   [ newsToNewsT n

@@ -77,39 +77,39 @@ data NewsT f = NewsT
 type NewsTId = NewsT Identity
 
 newsTToNews :: NewsTId -> Maybe News
-newsTToNews n = do
-  v <- A.decode $ fromStrict $ _newsPhoto n
+newsTToNews news = do
+  vPhoto <- A.decode $ fromStrict $ _newsPhoto news
   return $
     News
-      { uuidNews = _newsUuidNews n,
-        nameNews = _newsNewsName n,
-        loginAuthor = _newsLoginAuthor n,
-        nameAuthor = _newsNameAuthor n,
-        dateCreationNews = _newsDateCreation n,
-        categoryNews = _newsCategory n,
-        textNews = _newsContent n,
-        photoNews = v,
-        publicNews = _newsPublic n
+      { uuidNews = _newsUuidNews news,
+        nameNews = _newsNewsName news,
+        loginAuthor = _newsLoginAuthor news,
+        nameAuthor = _newsNameAuthor news,
+        dateCreationNews = _newsDateCreation news,
+        categoryNews = _newsCategory news,
+        textNews = _newsContent news,
+        photoNews = vPhoto,
+        publicNews = _newsPublic news
       }
 
 newsToNewsT :: News -> NewsTId
-newsToNewsT n =
+newsToNewsT news =
   NewsT
-    { _newsUuidNews = uuidNews n,
-      _newsNewsName = nameNews n,
-      _newsLoginAuthor = loginAuthor n,
-      _newsNameAuthor = nameAuthor n,
-      _newsDateCreation = dateCreationNews n,
-      _newsCategory = categoryNews n,
-      _newsContent = textNews n,
-      _newsPhoto = toStrict $ A.encode $ photoNews n,
-      _newsPublic = publicNews n
+    { _newsUuidNews = uuidNews news,
+      _newsNewsName = nameNews news,
+      _newsLoginAuthor = loginAuthor news,
+      _newsNameAuthor = nameAuthor news,
+      _newsDateCreation = dateCreationNews news,
+      _newsCategory = categoryNews news,
+      _newsContent = textNews news,
+      _newsPhoto = toStrict $ A.encode $ photoNews news,
+      _newsPublic = publicNews news
     }
 
 uuidNewsT :: UUID -> NewsTId
-uuidNewsT uu = 
+uuidNewsT uuID = 
   NewsT
-    { _newsUuidNews = uu,
+    { _newsUuidNews = uuID,
       _newsNewsName = undefined,
       _newsLoginAuthor = undefined,
       _newsNameAuthor = undefined,
@@ -121,10 +121,10 @@ uuidNewsT uu =
     }
 
 nameNewsT :: NameNews -> NewsTId
-nameNewsT nn =
+nameNewsT nameNews' =
   NewsT
     { _newsUuidNews = undefined,
-      _newsNewsName = nn,
+      _newsNewsName = nameNews',
       _newsLoginAuthor = undefined,
       _newsNameAuthor = undefined,
       _newsDateCreation = undefined,
@@ -148,10 +148,10 @@ data CategoryT f = CategoryT
   deriving (Generic, Beamable)
 
 categoryName :: Category -> CategoryTId
-categoryName c =
+categoryName category =
   CategoryT
     { _categoryUuidCategory = undefined,
-      _categoryCategoryName = c,
+      _categoryCategoryName = category,
       _categoryParent = undefined,
       _categoryChild = undefined
     }

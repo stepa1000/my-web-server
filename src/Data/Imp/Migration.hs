@@ -86,10 +86,10 @@ migrationAll info = do
 
 migrationMain :: IO [MigrationResult String]
 migrationMain = do
-  c <- getServerSettings
-  migrationAll (Server.confConnectionInfo c)
+  config <- getServerSettings
+  migrationAll (Server.confConnectionInfo config)
 
 migrationTest :: IO [MigrationResult String]
 migrationTest = do
-  c <- getServerSettingsTest
-  migrationAll (Server.confConnectionInfo c)
+  config <- getServerSettingsTest
+  migrationAll (Server.confConnectionInfo config)
