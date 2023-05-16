@@ -214,7 +214,7 @@ createNewsEdditS hServer userPub (Just uuID) content nameNews category flagPub l
             errHeaders = []
           }
 createNewsEdditS hServer _ _ _ _ _ _ _ _ = do
-  liftIO $ Logger.logError (Server.handleLogger hServer) "createNewsEddit: parametors not just"
+  liftIO $ Logger.logError (Server.handleLogger hServer) "createNewsEddit: parametor are null"
   throwError $
     ServerError
       { errHTTPCode = 400,
