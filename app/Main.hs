@@ -1,14 +1,13 @@
 module Main (main) where
 
--- import Lib
-
--- import System.IO as SIO
-
-import Data.Imp.Server
 import Data.Config
+import Data.Imp.Migration
+import Data.Imp.Server
 
 main :: IO ()
-main = do -- return () -- someFunc
+main = do
+  r <- migrationMain
+  putStrLn $ show r
   conf <- getServerSettings
   server actExit conf
 

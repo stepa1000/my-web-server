@@ -33,6 +33,8 @@ library
       Control.Server.News
       Control.Server.Photo
       Data.Config
+      Data.Imp.Database
+      Data.Imp.Migration
       Data.Imp.Server
       Data.Imp.Server.Authorization
       Data.Imp.Server.Category
@@ -62,12 +64,15 @@ library
     , config-value
     , containers
     , cryptonite
+    , directory
     , exceptions
     , hspec
     , http-client
     , http-client-tls
     , memory
     , mtl
+    , postgresql-migration
+    , postgresql-simple
     , random
     , servant
     , servant-client
@@ -76,6 +81,7 @@ library
     , time
     , transformers-base
     , unix
+    , utility-ht
     , uuid
     , vector
     , warp
@@ -103,6 +109,7 @@ executable my-web-server-exe
     , config-value
     , containers
     , cryptonite
+    , directory
     , exceptions
     , hspec
     , http-client
@@ -110,6 +117,8 @@ executable my-web-server-exe
     , memory
     , mtl
     , my-web-server
+    , postgresql-migration
+    , postgresql-simple
     , random
     , servant
     , servant-client
@@ -118,6 +127,7 @@ executable my-web-server-exe
     , time
     , transformers-base
     , unix
+    , utility-ht
     , uuid
     , vector
     , warp
@@ -150,6 +160,7 @@ test-suite my-web-server-test
     , config-value
     , containers
     , cryptonite
+    , directory
     , exceptions
     , hspec
     , http-client
@@ -157,6 +168,8 @@ test-suite my-web-server-test
     , memory
     , mtl
     , my-web-server
+    , postgresql-migration
+    , postgresql-simple
     , random
     , servant
     , servant-client
@@ -165,6 +178,7 @@ test-suite my-web-server-test
     , time
     , transformers-base
     , unix
+    , utility-ht
     , uuid
     , vector
     , warp

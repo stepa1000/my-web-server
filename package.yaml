@@ -51,6 +51,11 @@ dependencies:
 - yaml
 - http-client-tls
 - http-client
+- postgresql-migration
+- postgresql-simple
+- vector
+- directory
+- utility-ht
 
 ghc-options:
 # -XOverloadedStrings

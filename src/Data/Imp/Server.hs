@@ -28,6 +28,7 @@ import qualified Data.Logger.Impl as ImpLogger
 import Data.Maybe
 import Data.News
 import Data.Types
+import Data.UUID
 import Data.User
 import Data.Vector as V
 import Database.Beam
@@ -39,7 +40,6 @@ import System.Posix.Signals
 
 data Config = Config
   { confNews :: News.Config,
-    confFailPathToCategoryNews :: FilePath,
     confAuthorization :: Authorization.Config,
     confConnectionInfo :: ConnectInfo,
     confLogger :: ImpLogger.PreConfig
@@ -49,32 +49,32 @@ data Config = Config
 
 server :: IO () -> Config -> IO ()
 server shutdown config = do
-  withHandle config $ \sh -> do
-    let app = serveWithContext api (serverContext sh) (serverT sh)
-    _ <- ServerAuthorization.handleCreatInitAdmin (Server.handleAuthorization sh) "tempAdmin" "temp" False
+  withHandle config $ \hServer -> do
+    let app = serveWithContext api (serverContext hServer) (serverT hServer)
+    _ <- ServerAuthorization.handleCreatInitAdmin (Server.handleAuthorization hServer) "tempAdmin" "temp" False
     Warp.runSettings (setting shutdown) app
     return ()
 
 serverTest :: IO () -> Config -> ((IO (), Connection) -> IO ()) -> IO ()
-serverTest shutdown config g = do
-  withHandleTest config $ \(sh, c) -> do
-    let app = serveWithContext api (serverContext sh) (serverT sh)
-    mu <- ServerAuthorization.handleCreatInitAdmin (Server.handleAuthorization sh) "tempAdmin" "temp" False
-    Logger.logDebug (Server.handleLogger sh) $ "create temp admin: " .< mu
-    g (Warp.runSettings (setting shutdown) app, c)
+serverTest shutdown config act = do
+  withHandleTest config $ \(hServer, connectDB) -> do
+    let app = serveWithContext api (serverContext hServer) (serverT hServer)
+    nameAdmin <- ServerAuthorization.handleCreatInitAdmin (Server.handleAuthorization hServer) "tempAdmin" "temp" False
+    Logger.logDebug (Server.handleLogger hServer) $ "create temp admin: " .< nameAdmin
+    act (Warp.runSettings (setting shutdown) app, connectDB)
     return ()
 
 setting :: IO a -> Settings
-setting a =
+setting act =
   setInstallShutdownHandler shutdownHandler defaultSettings
   where
     shutdownHandler closeSocket =
-      void $ installHandler sigTERM (Catch $ a >> closeSocket) Nothing
+      void $ installHandler sigTERM (Catch $ act >> closeSocket) Nothing
 
 serverContext ::
   Server.Handle IO ->
   Context '[BasicAuthCheck UserPublic]
-serverContext sh = authcheck sh :. EmptyContext
+serverContext hServer = authcheck hServer :. EmptyContext
 
 serverT ::
   (MonadIO m1, MonadIO m2, MonadIO m3, MonadIO m4) =>
@@ -124,23 +124,23 @@ getNewsPublicS ::
   MonadIO m =>
   Server.Handle IO ->
   GetNewsPublic m
-getNewsPublicS sh mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' mSortBy' mOffSet' mLimit' =
+getNewsPublicS hServer mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsUUID' mNewsNam' mContent' mForString' mSortBy' mOffSet' mLimit' =
   liftIO $
     Server.handleServerFind
-      sh
+      hServer
       Nothing
-      (Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsNam' mContent' mForString' Nothing mSortBy' mOffSet' mLimit')
+      (Search mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsUUID' mNewsNam' mContent' mForString' Nothing mSortBy' mOffSet' mLimit')
 
 getNewsPrivateS ::
   Server.Handle IO ->
   UserPublic ->
   GetNewsPrivate Servant.Handler
-getNewsPrivateS sh bad mDayAt' mDayUntil' mDaySince' mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit' =
-  handleErrorAuthorization sh $
+getNewsPrivateS hServer bad mDayAt' mDayUntil' mDaySince' mCategory' mNewsUUID' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit' =
+  handleErrorAuthorization hServer $
     Server.handleServerFind
-      sh
+      hServer
       (Just bad)
-      (Search mDayAt' mDayUntil' mDaySince' (Just $ nameUser bad) mCategory' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit')
+      (Search mDayAt' mDayUntil' mDaySince' (Just $ nameUser bad) mCategory' mNewsUUID' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit')
 
 categoryCreateS ::
   MonadIO m =>
@@ -149,13 +149,14 @@ categoryCreateS ::
   Maybe Category ->
   Maybe Category ->
   m NewsCategory
-categoryCreateS sh bad (Just rc) (Just nc) = liftIO $ Server.handleCategoryCreate sh bad rc nc
-categoryCreateS sh _ _ _ = do
-  liftIO $ Logger.logError (Server.handleLogger sh) "categoryCreate: parametrs not Just"
-  liftIO $ Server.handleCategoryGet sh
+categoryCreateS hServer userPub (Just categoryRoot) (Just categoryName) =
+  liftIO $ Server.handleCategoryCreate hServer userPub categoryRoot categoryName
+categoryCreateS hServer _ _ _ = do
+  liftIO $ Logger.logError (Server.handleLogger hServer) "categoryCreate: parametrs not Just"
+  liftIO $ Server.handleCategoryGet hServer
 
 categoryGetS :: MonadIO m => Server.Handle IO -> m NewsCategory
-categoryGetS sh = liftIO $ Server.handleCategoryGet sh
+categoryGetS hServer = liftIO $ Server.handleCategoryGet hServer
 
 categoryChangeS ::
   Server.Handle IO ->
@@ -164,19 +165,20 @@ categoryChangeS ::
   Maybe Category ->
   Maybe Category ->
   Servant.Handler NewsCategory
-categoryChangeS sh bad (Just cn) mrc mrnn =
-  handleErrorAuthorization sh $ Server.handleCategoryChange sh bad cn mrc mrnn
-categoryChangeS sh _ _ _ _ = do
-  liftIO $ Logger.logError (Server.handleLogger sh) "categoryChange: parametrs not Just"
-  liftIO $ Server.handleCategoryGet sh
+categoryChangeS hServer userPub (Just categoryName) mCategoryRoot mCategoryNewName =
+  handleErrorAuthorization hServer $
+    Server.handleCategoryChange hServer userPub categoryName mCategoryRoot mCategoryNewName
+categoryChangeS hServer _ _ _ _ = do
+  liftIO $ Logger.logError (Server.handleLogger hServer) "categoryChange: parametrs not Just"
+  liftIO $ Server.handleCategoryGet hServer
 
 createNewsNewS :: Server.Handle IO -> UserPublic -> NewsCreate -> Servant.Handler News
-createNewsNewS sh bad nn = do
-  mn <- handleErrorAuthorization sh $ Server.handleCreateNewsNew sh bad nn
-  case mn of
-    (Just n) -> return n
+createNewsNewS hServer userPub newsCreate = do
+  mNews <- handleErrorAuthorization hServer $ Server.handleCreateNewsNew hServer userPub newsCreate
+  case mNews of
+    (Just news) -> return news
     Nothing -> do
-      liftIO $ Logger.logError (Server.handleLogger sh) "userCreate: creator not admin"
+      liftIO $ Logger.logError (Server.handleLogger hServer) "userCreate: creator not admin"
       throwError $
         ServerError
           { errHTTPCode = 404,
@@ -188,7 +190,7 @@ createNewsNewS sh bad nn = do
 createNewsEdditS ::
   Server.Handle IO ->
   UserPublic ->
-  Maybe NameNews -> -- old
+  Maybe UUID ->
   Maybe Content ->
   Maybe NameNews -> -- new
   Maybe Category ->
@@ -196,12 +198,14 @@ createNewsEdditS ::
   [Photo] ->
   [Base64] ->
   Servant.Handler News
-createNewsEdditS sh bad (Just nn) c nnn ca pu ph nph = do
-  mu <- handleErrorAuthorization sh $ Server.handleServerEditNews sh bad nn c nnn ca pu (V.fromList ph) (V.fromList nph)
-  case mu of
-    (Just u) -> return u
+createNewsEdditS hServer userPub (Just uuID) content nameNews category flagPub lPhoto lBase64 = do
+  mNews <-
+    handleErrorAuthorization hServer $
+      Server.handleServerEditNews hServer userPub uuID content nameNews category flagPub (V.fromList lPhoto) (V.fromList lBase64)
+  case mNews of
+    (Just news) -> return news
     _ -> do
-      liftIO $ Logger.logError (Server.handleLogger sh) "createNewsEddit: creator not maker news"
+      liftIO $ Logger.logError (Server.handleLogger hServer) "createNewsEddit: creator not maker news"
       throwError $
         ServerError
           { errHTTPCode = 403,
@@ -209,8 +213,8 @@ createNewsEdditS sh bad (Just nn) c nnn ca pu ph nph = do
             errBody = fromStrict B.empty,
             errHeaders = []
           }
-createNewsEdditS sh _ _ _ _ _ _ _ _ = do
-  liftIO $ Logger.logError (Server.handleLogger sh) "createNewsEddit: parametors not just"
+createNewsEdditS hServer _ _ _ _ _ _ _ _ = do
+  liftIO $ Logger.logError (Server.handleLogger hServer) "createNewsEddit: parametor are null"
   throwError $
     ServerError
       { errHTTPCode = 400,
@@ -228,12 +232,14 @@ userCreateS ::
   Maybe FlagMakeNews ->
   Maybe FlagAdmin ->
   Servant.Handler UserPublic
-userCreateS sh bad (Just n) (Just l) (Just p) (Just fm) (Just fa) = do
-  mu <- handleErrorAuthorization sh $ Server.handleUserCreate sh bad n l p fm fa
-  case mu of
-    (Just u) -> return u
+userCreateS hServer userPub (Just name) (Just login) (Just password) (Just flagMakeNews) (Just flagAdmin) = do
+  mUserPub <-
+    handleErrorAuthorization hServer $
+      Server.handleUserCreate hServer userPub name login password flagMakeNews flagAdmin
+  case mUserPub of
+    (Just userPub') -> return userPub'
     _ -> do
-      liftIO $ Logger.logError (Server.handleLogger sh) "userCreate: creator not admin"
+      liftIO $ Logger.logError (Server.handleLogger hServer) "userCreate: creator not admin"
       throwError $
         ServerError
           { errHTTPCode = 404,
@@ -241,8 +247,8 @@ userCreateS sh bad (Just n) (Just l) (Just p) (Just fm) (Just fa) = do
             errBody = fromStrict B.empty,
             errHeaders = []
           }
-userCreateS sh _ _ _ _ _ _ = do
-  liftIO $ Logger.logError (Server.handleLogger sh) "userCreate: parametors not just"
+userCreateS hServer _ _ _ _ _ _ = do
+  liftIO $ Logger.logError (Server.handleLogger hServer) "userCreate: parametors not just"
   throwError $
     ServerError
       { errHTTPCode = 404,
@@ -257,15 +263,15 @@ userListS ::
   Maybe OffSet ->
   Maybe Limit ->
   m [UserPublic]
-userListS sh mo ml = liftIO $ Server.handleUserList sh (fromMaybe 0 mo) (fromMaybe 0 ml)
+userListS hServer mOffSet mLimit = liftIO $ Server.handleUserList hServer (fromMaybe 0 mOffSet) (fromMaybe 0 mLimit)
 
 photoGetS :: Server.Handle IO -> Maybe Photo -> Servant.Handler Base64
-photoGetS sh (Just ph) = do
-  mb <- liftIO $ Server.handlePhotoGet sh ph
-  case mb of
-    (Just b) -> return b
+photoGetS hServer (Just photo) = do
+  mbase64 <- liftIO $ Server.handlePhotoGet hServer photo
+  case mbase64 of
+    (Just base64) -> return base64
     _ -> do
-      liftIO $ Logger.logError (Server.handleLogger sh) $ "photoGet: not find photo for " .< ph
+      liftIO $ Logger.logError (Server.handleLogger hServer) $ "photoGet: not find photo for " .< photo
       throwError $
         ServerError
           { errHTTPCode = 400,
@@ -273,8 +279,8 @@ photoGetS sh (Just ph) = do
             errBody = fromStrict B.empty,
             errHeaders = []
           }
-photoGetS sh _ = do
-  liftIO $ Logger.logError (Server.handleLogger sh) "photoGet: parametors not just"
+photoGetS hServer _ = do
+  liftIO $ Logger.logError (Server.handleLogger hServer) "photoGet: parametors not just"
   throwError $
     ServerError
       { errHTTPCode = 404,
@@ -284,9 +290,9 @@ photoGetS sh _ = do
       }
 
 handleErrorAuthorization :: Server.Handle IO -> IO a -> Servant.Handler a
-handleErrorAuthorization h m = do
-  e <- liftIO $ ServerAuthorization.handleCatchErrorAuthorization (Server.handleAuthorization h) m
-  case e of
+handleErrorAuthorization hServer act = do
+  outAct <- liftIO $ ServerAuthorization.handleCatchErrorAuthorization (Server.handleAuthorization hServer) act
+  case outAct of
     (Left ServerAuthorization.ErrorAuthorization) ->
       throwError $
         ServerError
@@ -314,13 +320,13 @@ handleErrorAuthorization h m = do
     (Right a) -> return a
 
 authcheck :: Server.Handle IO -> BasicAuthCheck UserPublic
-authcheck sh = BasicAuthCheck $ \bad -> do
+authcheck hServer = BasicAuthCheck $ \userPub -> do
   ServerAuthorization.hCatchErrorAuthorization
-    (Server.handleAuthorization sh)
+    (Server.handleAuthorization hServer)
     ( g
         <$> ServerAuthorization.handleCheckAccountStrong
-          (Server.handleAuthorization sh)
-          (basicAuthDataToLogined bad)
+          (Server.handleAuthorization hServer)
+          (basicAuthDataToLogined hServer)
     )
     f
   where
@@ -329,53 +335,53 @@ authcheck sh = BasicAuthCheck $ \bad -> do
     g _ = Unauthorized
 
 withHandle :: Config -> (Server.Handle IO -> IO a) -> IO a
-withHandle conf g = do
-  con <- Beam.connect $ confConnectionInfo conf
+withHandle config act = do
+  connectDB <- Beam.connect $ confConnectionInfo config
   ImpLogger.withPreConf
-    (confLogger conf)
-    ( \lh -> do
-        let snh = News.makeHandle lh (confNews conf) con
-        let ah = Authorization.makeHandle lh (confAuthorization conf) con
+    (confLogger config)
+    ( \logger -> do
+        let hNews = News.makeHandle logger (confNews config) connectDB
+        let hAuthorization = Authorization.makeHandle logger (confAuthorization config) connectDB
         Category.withHandle
-          lh
-          (confFailPathToCategoryNews conf)
-          ( \ch -> do
+          logger
+          connectDB
+          ( \hCategory -> do
               a <-
-                g $
+                act $
                   Server.Handle
-                    { Server.handleLogger = lh,
-                      Server.handleNews = snh,
-                      Server.handleCategory = ch,
-                      Server.handleAuthorization = ah
+                    { Server.handleLogger = logger,
+                      Server.handleNews = hNews,
+                      Server.handleCategory = hCategory,
+                      Server.handleAuthorization = hAuthorization
                     }
-              close con
+              close connectDB
               return a
           )
     )
 
 withHandleTest :: Config -> ((Server.Handle IO, Connection) -> IO a) -> IO a
-withHandleTest conf g = do
-  con <- Beam.connect $ confConnectionInfo conf
+withHandleTest config act = do
+  connectDB <- Beam.connect $ confConnectionInfo config
   ImpLogger.withPreConf
-    (confLogger conf)
-    ( \lh -> do
-        let snh = News.makeHandle lh (confNews conf) con
-        let ah = Authorization.makeHandle lh (confAuthorization conf) con
+    (confLogger config)
+    ( \logger -> do
+        let hNews = News.makeHandle logger (confNews config) connectDB
+        let hAuthorization = Authorization.makeHandle logger (confAuthorization config) connectDB
         Category.withHandle
-          lh
-          (confFailPathToCategoryNews conf)
-          ( \ch -> do
+          logger
+          connectDB
+          ( \hCategory -> do
               a <-
-                g
+                act
                   ( Server.Handle
-                      { Server.handleLogger = lh,
-                        Server.handleNews = snh,
-                        Server.handleCategory = ch,
-                        Server.handleAuthorization = ah
+                      { Server.handleLogger = logger,
+                        Server.handleNews = hNews,
+                        Server.handleCategory = hCategory,
+                        Server.handleAuthorization = hAuthorization
                       },
-                    con
+                    connectDB
                   )
-              close con
+              close connectDB
               return a
           )
     )

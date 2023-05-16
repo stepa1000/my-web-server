@@ -12,8 +12,6 @@ module Data.Imp.Server.News
   ( Config (..),
     makeHandle,
     NewsT (..),
-    NewsDB (..),
-    newsDB,
     hSearchContent,
     debugPosition,
   )
@@ -21,9 +19,9 @@ where
 
 import qualified Control.Logger as Logger
 import qualified Control.Server.News as SNews
-import Data.Aeson as A
 import Data.ByteString
 import Data.Foldable
+import Data.Imp.Database
 import qualified Data.Imp.Server.Photo as ImpSPhoto
 import Data.List (sortBy)
 import Data.Maybe as Maybe
@@ -33,6 +31,7 @@ import Data.Text.Internal
 import Data.Time.Calendar.OrdinalDate
 import Data.Time.Clock
 import Data.Types
+import Data.UUID
 import Data.Utils
 import Data.Vector as V
 import Data.Yaml as Y
@@ -40,46 +39,77 @@ import Database.Beam as Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
 import Database.Beam.Query.Internal
+import System.Random
 import Prelude as P
 
+-- | Config with a field that stores a value about the
+-- maximum length of the list when the query is output.
 newtype Config = Config
   {confMaxLimit :: Integer}
   deriving (Generic)
   deriving anyclass (Y.ToJSON, Y.FromJSON)
 
+-- | Handler Assembler.
+--
+-- Sets the implanted handler functions to the appropriate fields.
+--
+-- To have a handler that is usable in practice.
 makeHandle :: Logger.Handle IO -> Config -> Connection -> SNews.Handle IO
-makeHandle hl conf c =
+makeHandle logger config connectDB =
   SNews.Handle
-    { SNews.handlePhoto = ImpSPhoto.makeHandle hl c,
-      SNews.hSearchNews = hSearchNews hl (confMaxLimit conf) c,
-      SNews.hPutNews = hPutNews hl c,
-      SNews.hGetNews = hGetNews hl c,
-      SNews.hModifNews = hModifNews hl c,
+    { SNews.handlePhoto = ImpSPhoto.makeHandle logger connectDB,
+      SNews.hSearchNews = hSearchNews logger (confMaxLimit config) connectDB,
+      SNews.hPutNews = hPutNews logger connectDB,
+      SNews.hGenUUID = randomIO,
+      SNews.hGetNews = hGetNews logger connectDB,
+      SNews.hModifNews = hModifNews logger connectDB,
       SNews.hGetDay = hGetDay
     }
 
-hSearchNews :: Logger.Handle IO -> Integer -> Connection -> Search -> IO [News]
-hSearchNews hl maxLimit c s = do
-  Logger.logInfo hl "Search news"
-  lm <- (fmap . fmap) newsTToNews $ listStreamingRunSelect c $ select $ searchNews (toInteger <$> mLimit s) (toInteger <$> mOffSet s)
-  return $ sortNews (mSortBy s) $ Maybe.catMaybes lm
+-- | Database query. Search for news by filtering and
+-- outputting unpublished news from the user.
+--
+-- The application of the query depends on the
+-- search options and whether a login is specified.
+-- Also apply restrictions on the issuance of the number of news.
+--
+-- The query itself to the database was taken into a separate function
+-- because of the number of options for which the search takes place,
+-- so in the current function in addition to this remain commands
+-- to access the database for the entire query.
+hSearchNews :: Logger.Handle IO -> Integer -> Connection -> Maybe Login -> Search -> IO [News]
+hSearchNews logger maxLimit connectDB mlogin search = do
+  Logger.logInfo logger "Search news"
+  lMNews <-
+    (fmap . fmap) newsTToNews $
+      listStreamingRunSelect connectDB $
+        select $
+          searchNews (toInteger <$> mLimit search) (toInteger <$> mOffSet search)
+  return $ sortNews (mSortBy search) $ Maybe.catMaybes lMNews
   where
-    searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_ (filterSearch s) (all_ (_news newsDB))
-    searchNews _ _ = limit_ maxLimit $ offset_ 0 $ filter_ (filterSearch s) (all_ (_news newsDB))
+    searchNews (Just limit) (Just offset) =
+      limit_ (min maxLimit limit) $
+        offset_ offset $
+          filter_ (filterSearch mlogin search) (all_ (dbNews webServerDB))
+    searchNews _ _ = limit_ maxLimit $ offset_ 0 $ filter_ (filterSearch mlogin search) (all_ (dbNews webServerDB))
 
 hSearchContent :: Integer -> Connection -> Content -> IO [News]
-hSearchContent maxLimit c content = do
-  lm <- (fmap . fmap) newsTToNews $ listStreamingRunSelect c $ select $ searchNews Nothing Nothing
-  return $ Maybe.catMaybes lm
+hSearchContent maxLimit connectDB content = do
+  lMNews <- (fmap . fmap) newsTToNews $ listStreamingRunSelect connectDB $ select $ searchNews Nothing Nothing
+  return $ Maybe.catMaybes lMNews
   where
-    searchNews (Just l) (Just o) = limit_ (min maxLimit l) $ offset_ o $ filter_' (filterContent' (Just content)) (all_ (_news newsDB))
-    searchNews _ _ = limit_ maxLimit $ offset_ 0 $ filter_' (filterContent' (Just content)) (all_ (_news newsDB))
+    searchNews (Just limit) (Just offset) =
+      limit_ (min maxLimit limit) $
+        offset_ offset $
+          filter_' (filterContent' (Just content)) (all_ (dbNews webServerDB))
+    searchNews _ _ =
+      limit_ maxLimit $ offset_ 0 $ filter_' (filterContent' (Just content)) (all_ (dbNews webServerDB))
 
 debugPosition :: Connection -> Content -> IO ByteString
-debugPosition c content = do
-  pgTraceStmtIO' @(SqlSelect Postgres Integer) c $ select $ do
-    n <- all_ (_news newsDB)
-    return $ position (val_ content) (_newsContent n)
+debugPosition connectDB content = do
+  pgTraceStmtIO' @(SqlSelect Postgres Integer) connectDB $ select $ do
+    news <- all_ (dbNews webServerDB)
+    return $ position (val_ content) (_newsContent news)
 
 position :: QGenExpr QValueContext Postgres QBaseScope Content -> QGenExpr QValueContext Postgres QBaseScope Content -> QGenExpr QValueContext Postgres QBaseScope Integer
 position = customExpr_ f
@@ -103,9 +133,18 @@ sortNews (Just SBCategory) = sortBy (\a b -> compare (categoryNews a) (categoryN
 sortNews (Just SBCountPhoto) = sortBy (\a b -> compare (V.length $ photoNews a) (V.length $ photoNews b))
 sortNews Nothing = id
 
+-- | Search query for news in the database.
 --
+-- Each search option is converted into a query that checks
+-- the equality of the specified data with the data from the news
+-- in the database, then connect them using the operator "and".
+-- There is a search string in different fields of the news.
+-- It is also possible to publish unpublished news to the user.
+--
+-- To create a filter by conditions in one function.
 filterSearch ::
   CxtFilterSearch f =>
+  Maybe Login ->
   Search ->
   NewsT f ->
   QGenExpr
@@ -117,58 +156,71 @@ filterSearch ::
         )
     )
     Bool
-filterSearch (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsNam' mContent' mForString' mFlagPublished' _ _ _) n =
-  filterDaySince mDaySince' n
-    &&. filterDayAt mDayAt' n
-    &&. filterDayUntil mDayUntil' n
-    &&. filterAuthor mAuthor' n
-    &&. filterCategory mCategory' n
-    &&. filterNewsName mNewsNam' n
-    &&. filterFlagPublished mFlagPublished' n
-    &&. filterContent mContent' n
+filterSearch mlogin (Search mDayAt' mDayUntil' mDaySince' mAuthor' mCategory' mNewsUUID' mNewsNam' mContent' mForString' mFlagPublished' _ _ _) news =
+  filterDaySince mDaySince' news
+    &&. filterDayAt mDayAt' news
+    &&. filterDayUntil mDayUntil' news
+    &&. filterAuthor mAuthor' news
+    &&. filterCategory mCategory' news
+    &&. filterUUID mNewsUUID' news
+    &&. filterNewsName mNewsNam' news
+    &&. filterFlagPublished mlogin mFlagPublished' news
+    &&. filterContent mContent' news
     &&. f mForString'
   where
-    f (Just fs) =
-      filterForStringName fs n
-        ||. filterForStringContent fs n
-        ||. filerForStringAuthor fs n
-        ||. filterForStringCategory fs n
+    f (Just forString) =
+      filterForStringName forString news
+        ||. filterForStringContent forString news
+        ||. filerForStringAuthor forString news
+        ||. filterForStringCategory forString news
     f Nothing = val_ True
+
+filterUUID ::
+  ( HaskellLiteralForQExpr (expr Bool) ~ Bool,
+    SqlEq expr (Columnar f UUID),
+    SqlValable (expr Bool),
+    SqlValable (Columnar f UUID)
+  ) =>
+  Maybe (HaskellLiteralForQExpr (Columnar f UUID)) ->
+  NewsT f ->
+  expr Bool
+filterUUID (Just uuID) news = _newsUuidNews news ==. val_ uuID
+filterUUID Nothing _ = val_ True
 
 filterForStringContent ::
   (Columnar f Content ~ QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content) =>
   Data.Text.Internal.Text ->
   NewsT f ->
   QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Bool
-filterForStringContent fs n = positionQNested (val_ fs) (_newsContent n) /=. val_ 0
+filterForStringContent forString news = positionQNested (val_ forString) (_newsContent news) /=. val_ 0
 
 filterForStringName ::
   (Columnar f NameNews ~ QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content) =>
   Text ->
   NewsT f ->
   QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Bool
-filterForStringName s n = positionQNested (val_ s) (_newsNewsName n) /=. val_ 0
+filterForStringName forString news = positionQNested (val_ forString) (_newsNewsName news) /=. val_ 0
 
 filerForStringAuthor ::
   (Columnar f Name ~ QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content) =>
   Text ->
   NewsT f ->
   QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Bool
-filerForStringAuthor s n = positionQNested (val_ s) (_newsNameAuthor n) /=. val_ 0
+filerForStringAuthor forString news = positionQNested (val_ forString) (_newsNameAuthor news) /=. val_ 0
 
 filterForStringCategory ::
   (Columnar f Category ~ QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content) =>
   Text ->
   NewsT f ->
   QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Bool
-filterForStringCategory s n = positionQNested (val_ s) (_newsCategory n) /=. val_ 0
+filterForStringCategory forString news = positionQNested (val_ forString) (_newsCategory news) /=. val_ 0
 
 filterContent ::
   (Columnar f Content ~ QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Content) =>
   Maybe Text ->
   NewsT f ->
   QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) Bool
-filterContent (Just c) n = positionQNested (val_ c) (_newsContent n) /=. val_ 0
+filterContent (Just content) news = positionQNested (val_ content) (_newsContent news) /=. val_ 0
 filterContent Nothing _ = val_ True
 
 filterContent' ::
@@ -176,20 +228,22 @@ filterContent' ::
   Maybe Text ->
   NewsT f ->
   QGenExpr QValueContext Postgres (QNested (QNested QBaseScope)) SqlBool
-filterContent' (Just c) n = positionQNested (val_ c) (_newsContent n) /=?. val_ 0
+filterContent' (Just content) news = positionQNested (val_ content) (_newsContent news) /=?. val_ 0
 filterContent' Nothing _ = sqlBool_ $ val_ True
 
 filterFlagPublished ::
-  ( HaskellLiteralForQExpr (expr Bool) ~ Bool,
-    SqlEq expr (Columnar f FlagPublished),
-    SqlValable (expr Bool),
-    SqlValable (Columnar f FlagPublished)
+  ( SqlEq (QGenExpr context Postgres s) (Columnar f FlagPublished),
+    SqlEq (QGenExpr context Postgres s) (Columnar f Login),
+    SqlValable (Columnar f FlagPublished),
+    SqlValable (Columnar f Login)
   ) =>
+  Maybe (HaskellLiteralForQExpr (Columnar f Login)) ->
   Maybe (HaskellLiteralForQExpr (Columnar f FlagPublished)) ->
   NewsT f ->
-  expr Bool
-filterFlagPublished (Just fp) n = _newsPublic n ==. val_ fp
-filterFlagPublished Nothing _ = val_ True
+  QGenExpr context Postgres s Bool
+filterFlagPublished (Just login) (Just flagPub) news =
+  (_newsPublic news ==. val_ flagPub) &&. (_newsLoginAuthor news ==. val_ login)
+filterFlagPublished _ _ _ = val_ True -- ????????????????????????????
 
 filterNewsName ::
   ( HaskellLiteralForQExpr (expr Bool) ~ Bool,
@@ -200,7 +254,7 @@ filterNewsName ::
   Maybe (HaskellLiteralForQExpr (Columnar f NameNews)) ->
   NewsT f ->
   expr Bool
-filterNewsName (Just nn) n = _newsNewsName n ==. val_ nn
+filterNewsName (Just nameNews') news = _newsNewsName news ==. val_ nameNews'
 filterNewsName Nothing _ = val_ True
 
 filterCategory ::
@@ -212,7 +266,7 @@ filterCategory ::
   Maybe (HaskellLiteralForQExpr (Columnar f Category)) ->
   NewsT f ->
   expr Bool
-filterCategory (Just c) n = _newsCategory n ==. val_ c
+filterCategory (Just category) news = _newsCategory news ==. val_ category
 filterCategory Nothing _ = val_ True
 
 filterAuthor ::
@@ -224,7 +278,7 @@ filterAuthor ::
   Maybe (HaskellLiteralForQExpr (Columnar f Name)) ->
   NewsT f ->
   expr Bool
-filterAuthor (Just a) n = _newsNameAuthor n ==. val_ a
+filterAuthor (Just name) news = _newsNameAuthor news ==. val_ name
 filterAuthor Nothing _ = val_ True
 
 filterDaySince ::
@@ -236,7 +290,7 @@ filterDaySince ::
   Maybe (HaskellLiteralForQExpr (Columnar f Day)) ->
   NewsT f ->
   expr Bool
-filterDaySince (Just ds) n = _newsDateCreation n ==. val_ ds
+filterDaySince (Just day) news = _newsDateCreation news ==. val_ day
 filterDaySince Nothing _ = val_ True
 
 filterDayAt ::
@@ -248,7 +302,7 @@ filterDayAt ::
   Maybe (HaskellLiteralForQExpr (Columnar f Day)) ->
   NewsT f ->
   expr Bool
-filterDayAt (Just dat) n = _newsDateCreation n >=. val_ dat
+filterDayAt (Just dat) news = _newsDateCreation news >=. val_ dat
 filterDayAt Nothing _ = val_ True
 
 filterDayUntil ::
@@ -260,7 +314,7 @@ filterDayUntil ::
   Maybe (HaskellLiteralForQExpr (Columnar f Day)) ->
   NewsT f ->
   expr Bool
-filterDayUntil (Just dat) n = _newsDateCreation n <=. val_ dat
+filterDayUntil (Just dat) news = _newsDateCreation news <=. val_ dat
 filterDayUntil Nothing _ = val_ True
 
 hGetDay :: IO Day
@@ -268,124 +322,53 @@ hGetDay = do
   (UTCTime d _) <- getCurrentTime
   return d
 
-hModifNews :: Logger.Handle IO -> Connection -> NameNews -> (News -> News) -> IO ()
-hModifNews hl c nn f = do
-  Logger.logInfo hl "Modify news"
-  l <- listStreamingRunSelect c $ lookup_ (_news newsDB) (primaryKey $ nameNewsT nn)
-  case l of
-    (x : _) -> do
+hModifNews :: Logger.Handle IO -> Connection -> UUID -> (News -> News) -> IO ()
+hModifNews logger connectDB uuID act = do
+  Logger.logInfo logger "Modify news"
+  lNewsT <- listStreamingRunSelect connectDB $ lookup_ (dbNews webServerDB) (primaryKey $ uuidNewsT uuID)
+  case lNewsT of
+    (newsT : _) -> do
       _ <-
-        BPC.runDelete c $
+        BPC.runDelete connectDB $
           delete
-            (_news newsDB)
-            (\n -> _newsNewsName n ==. val_ (_newsNewsName x))
-      let mn = f <$> newsTToNews x
+            (dbNews webServerDB)
+            (\n -> _newsNewsName n ==. val_ (_newsNewsName newsT))
+      let mNews = act <$> newsTToNews newsT
       traverse_
         ( \n -> do
-            BPC.runInsert c $
-              Beam.insert (_news newsDB) $
+            BPC.runInsert connectDB $
+              Beam.insert (dbNews webServerDB) $
                 insertValues
                   [ newsToNewsT n
                   ]
         )
-        mn
+        mNews
     [] -> return ()
 
-hGetNews :: Logger.Handle IO -> Connection -> NewsName -> IO (Maybe News)
-hGetNews hl c nn = do
-  Logger.logInfo hl "Gut news"
-  l <- listStreamingRunSelect c $ lookup_ (_news newsDB) (primaryKey $ nameNewsT nn)
-  case l of
-    (x : _) -> return $ newsTToNews x
+hGetNews :: Logger.Handle IO -> Connection -> UUID -> IO (Maybe News)
+hGetNews logger connectDB uuID = do
+  Logger.logInfo logger "Gut news"
+  lNewsT <- listStreamingRunSelect connectDB $ lookup_ (dbNews webServerDB) (primaryKey $ uuidNewsT uuID)
+  case lNewsT of
+    (newsT : _) -> return $ newsTToNews newsT
     [] -> return Nothing
 
 hPutNews :: Logger.Handle IO -> Connection -> News -> IO ()
-hPutNews hl c n = do
-  Logger.logInfo hl "Put news"
+hPutNews logger connectDB news = do
+  Logger.logInfo logger "Put news"
   _ <-
-    BPC.runInsert c $
-      Beam.insert (_news newsDB) $
+    BPC.runInsert connectDB $
+      Beam.insert (dbNews webServerDB) $
         insertValues
-          [ newsToNewsT n
+          [ newsToNewsT news
           ]
   return ()
 
--- NewsT for beam
-
-newsTToNews :: NewsTId -> Maybe News
-newsTToNews n = do
-  v <- A.decode $ fromStrict $ _newsPhoto n
-  return $
-    News
-      { nameNews = _newsNewsName n,
-        loginAuthor = _newsLoginAuthor n,
-        nameAuthor = _newsNameAuthor n,
-        dateCreationNews = _newsDateCreation n,
-        categoryNews = _newsCategory n,
-        textNews = _newsContent n,
-        photoNews = v,
-        publicNews = _newsPublic n
-      }
-
-newsToNewsT :: News -> NewsTId
-newsToNewsT n =
-  NewsT
-    { _newsNewsName = nameNews n,
-      _newsLoginAuthor = loginAuthor n,
-      _newsNameAuthor = nameAuthor n,
-      _newsDateCreation = dateCreationNews n,
-      _newsCategory = categoryNews n,
-      _newsContent = textNews n,
-      _newsPhoto = toStrict $ A.encode $ photoNews n,
-      _newsPublic = publicNews n
-    }
-
-nameNewsT :: NameNews -> NewsTId
-nameNewsT nn =
-  NewsT
-    { _newsNewsName = nn,
-      _newsLoginAuthor = undefined,
-      _newsNameAuthor = undefined,
-      _newsDateCreation = undefined,
-      _newsCategory = undefined,
-      _newsContent = undefined,
-      _newsPhoto = undefined,
-      _newsPublic = undefined
-    }
-
-data NewsT f = NewsT
-  { _newsNewsName :: Columnar f NameNews,
-    _newsLoginAuthor :: Columnar f Login,
-    _newsNameAuthor :: Columnar f Name,
-    _newsDateCreation :: Columnar f Day,
-    _newsCategory :: Columnar f Category,
-    _newsContent :: Columnar f Content,
-    _newsPhoto :: Columnar f ByteString,
-    _newsPublic :: Columnar f FlagPublished
-  }
-  deriving (Generic, Beamable)
-
-type NewsTId = NewsT Identity
-
--- type NewsId = PrimaryKey NewsT Identity
-
-instance Table NewsT where
-  data PrimaryKey NewsT f = NewsId (Columnar f NameNews)
-    deriving (Generic, Beamable)
-  primaryKey = NewsId . _newsNewsName
-
-newtype NewsDB f = NewsDB
-  {_news :: f (TableEntity NewsT)}
-  deriving (Generic)
-  deriving anyclass (Database be)
-
-newsDB :: DatabaseSettings be NewsDB
-newsDB = defaultDbSettings
-
--- Cxt
-
 type CxtFilterSearch f =
-  ( Columnar f NameNews
+  ( SqlValable (Columnar f UUID),
+    SqlEq (QGenExpr QValueContext Postgres (QNested (QNested QBaseScope))) (Columnar f UUID),
+    HaskellLiteralForQExpr (Columnar f UUID) ~ UUID,
+    Columnar f NameNews
       ~ QGenExpr
           QValueContext
           Postgres
