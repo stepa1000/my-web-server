@@ -1,7 +1,11 @@
 .stack-work/
-config
-data
-logging
+server.yaml
+serverTest.yaml
+categoryNews.json
+categoryNewsTest.json
+log
+logTest
 .vscode
 .history
 *~
+.Web.hs.swp

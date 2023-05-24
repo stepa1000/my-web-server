@@ -1,13 +1,15 @@
 {-# OPTIONS_GHC -Wwarn #-}
 
 import qualified AuthorizationSpec
+import Data.Imp.Migration
 import qualified NewsSpec
 import qualified ServerSpec
 import Test.Hspec
 
 main :: IO ()
 main = do
-  migrationDBServerTest
+  r <- migrationTest
+  putStrLn $ show r
   hspec spec
 
 spec :: Spec

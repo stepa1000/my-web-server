@@ -36,37 +36,37 @@ data ErrorAuthorization
   deriving (Typeable, Show, Eq, Exception)
 
 handleCreatInitAdmin :: Monad m => Handle m -> Login -> Password -> FlagMakeNews -> m (Maybe UserPublic)
-handleCreatInitAdmin h login p fmn = do
-  l <- hUserList h 0 0
-  case l of
-    [] -> Just <$> hCreateUser h login login p fmn True
+handleCreatInitAdmin auth login password flagMNews = do
+  lUser <- hUserList auth 0 0
+  case lUser of
+    [] -> Just <$> hCreateUser auth login login password flagMNews True
     _ -> return Nothing
 
 handleCatchErrorAuthorization :: Monad m => Handle m -> m a -> m (Either ErrorAuthorization a)
-handleCatchErrorAuthorization h ma = hCatchErrorAuthorization h (fmap Right ma) (return . Left)
+handleCatchErrorAuthorization auth mact = hCatchErrorAuthorization auth (fmap Right mact) (return . Left)
 
 handleWithAccount :: Monad m => Handle m -> Logined -> (UserPublic -> m a) -> m (Maybe a)
-handleWithAccount h l f = do
-  mu <- handleCheckAccount h l
-  case mu of
-    (Just u) -> Just <$> f u
+handleWithAccount auth logined act = do
+  mUserPublic <- handleCheckAccount auth logined
+  case mUserPublic of
+    (Just userPublic) -> Just <$> act userPublic
     _ -> do
-      hAuthorizationFail h
+      hAuthorizationFail auth
       return Nothing
 
 -- | exist with an exception if you are not logged in
 handleCheckAccountStrong :: Monad m => Handle m -> Logined -> m (Maybe UserPublic)
-handleCheckAccountStrong h l = do
-  mu <- handleCheckAccount h l
-  case mu of
-    (Just u) -> return $ Just u
+handleCheckAccountStrong auth logined = do
+  mUserPublic <- handleCheckAccount auth logined
+  case mUserPublic of
+    (Just userPublic) -> return $ Just userPublic
     _ -> do
-      hAuthorizationFail h
+      hAuthorizationFail auth
       return Nothing
 
 handleCheckAccount :: Handle m -> Logined -> m (Maybe UserPublic)
-handleCheckAccount h logined =
+handleCheckAccount auth logined =
   hCheckAccount
-    h
+    auth
     (loginLogined logined)
     (passwordLogined logined)
