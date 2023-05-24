@@ -32,7 +32,6 @@ import Data.Text
 -- import Data.ByteString
 import Data.Time.Calendar.OrdinalDate
 import Data.Tree
-import Data.UUID
 import GHC.Generics
 import Servant.API
 
@@ -87,7 +86,6 @@ emptySearch =
       mDaySince = Nothing,
       mAuthor = Nothing,
       mCategory = Nothing,
-      mNewsUUID = Nothing,
       mNewsName = Nothing,
       mContent = Nothing,
       mForString = Nothing,
@@ -97,19 +95,12 @@ emptySearch =
       mLimit = Nothing
     }
 
--- | Serching for news.
---
--- A lot of data is put in Maybe, it's necessary to
--- be able to diversify the search, i.e. to specify only those fields that are needed.
---
--- Since there are many search parameters, they are placed in a structure, for ease of use.
 data Search = Search
   { mDayAtSearch :: Maybe DayAt,
     mDayUntil :: Maybe DayUntil,
     mDaySince :: Maybe DaySince,
     mAuthor :: Maybe Name,
     mCategory :: Maybe Category,
-    mNewsUUID :: Maybe UUID,
     mNewsName :: Maybe NewsName,
     mContent :: Maybe Content,
     mForString :: Maybe ForString,

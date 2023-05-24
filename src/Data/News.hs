@@ -13,16 +13,11 @@ where
 import Data.Aeson
 import Data.Time.Calendar.OrdinalDate
 import Data.Types
-import Data.UUID
 import Data.Vector as V
 import GHC.Generics
 
--- | News.
---
--- Contains editable and identifiable fields to pass content and find.
 data News = News
-  { uuidNews :: UUID,
-    nameNews :: NameNews,
+  { nameNews :: NameNews,
     loginAuthor :: Login,
     nameAuthor :: Name,
     dateCreationNews :: Day,

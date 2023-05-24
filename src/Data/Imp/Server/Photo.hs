@@ -14,7 +14,6 @@ where
 import qualified Control.Logger as Logger
 import Control.Monad
 import qualified Control.Server.Photo as SPhoto
-import Data.Imp.Database
 import Data.Maybe
 import Data.Types
 import Data.UUID
@@ -26,40 +25,63 @@ import System.Random
 import Prelude as P
 
 makeHandle :: Logger.Handle IO -> Connection -> SPhoto.Handle IO
-makeHandle logger connectDB =
+makeHandle hl c =
   SPhoto.Handle
-    { SPhoto.hPutPhoto = hPutPhoto logger connectDB,
-      SPhoto.hGetPhoto = hGetPhoto logger connectDB
+    { SPhoto.hPutPhoto = hPutPhoto hl c,
+      SPhoto.hGetPhoto = hGetPhoto hl c
     }
 
 hGetPhoto :: Logger.Handle IO -> Connection -> Photo -> IO (Maybe Base64)
-hGetPhoto logger connectDB photo = do
-  Logger.logInfo logger "Get photo"
-  lPhoto <-
+hGetPhoto hl c p' = do
+  Logger.logInfo hl "Get photo"
+  l <-
     join . maybeToList
       <$> traverse
-        ( \photo' ->
-            listStreamingRunSelect connectDB $
+        ( \p ->
+            listStreamingRunSelect c $
               lookup_
-                (dbPhoto webServerDB)
+                (_photos photoDB)
                 ( primaryKey $
                     PhotoT
-                      { _photoUuidPhoto = photo',
+                      { _photoUuid = p,
                         _photoData = undefined
                       }
                 )
         )
-        (fromText photo)
-  return (_photoData <$> listToMaybe lPhoto)
+        (fromText p')
+  return (_photoData <$> listToMaybe l)
 
 hPutPhoto :: Logger.Handle IO -> Connection -> Base64 -> IO Photo
-hPutPhoto logger connectDB base64 = do
-  Logger.logInfo logger "Put photo"
-  uuID <- randomIO @UUID
+hPutPhoto hl c b = do
+  Logger.logInfo hl "Put photo"
+  u <- randomIO @UUID
   _ <-
-    BPC.runInsert connectDB $
-      insert (dbPhoto webServerDB) $
+    BPC.runInsert c $
+      insert (_photos photoDB) $
         insertValues
-          [ PhotoT uuID base64
+          [ PhotoT u b
           ]
-  return $ toText uuID
+  return $ toText u
+
+data PhotoT f = PhotoT
+  { _photoUuid :: Columnar f UUID,
+    _photoData :: Columnar f Base64
+  }
+  deriving (Generic, Beamable)
+
+-- type PhotoTId = PhotoT Identity
+-- type PhotoId = PrimaryKey PhotoT Identity
+
+instance Table PhotoT where
+  data PrimaryKey PhotoT f = PhotoId (Columnar f UUID)
+    deriving (Generic, Beamable)
+  primaryKey = PhotoId . _photoUuid
+
+newtype PhotoDB f = PhotoDB
+  { _photos :: f (TableEntity PhotoT)
+  }
+  deriving (Generic)
+  deriving anyclass (Database be)
+
+photoDB :: DatabaseSettings be PhotoDB
+photoDB = defaultDbSettings

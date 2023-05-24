@@ -12,6 +12,8 @@ module Data.Imp.Server.Authorization
     UserT (..),
     UserTId,
     UserId,
+    AccountDB (..),
+    accountDB,
   )
 where
 
@@ -23,7 +25,6 @@ import Crypto.Hash
 import Data.Binary as Binary
 import Data.ByteArray
 import Data.ByteString as B
-import Data.Imp.Database
 import Data.Maybe
 import Data.Text
 import Data.Time.Calendar.OrdinalDate
@@ -44,67 +45,67 @@ newtype Config = Config
   deriving anyclass (ToJSON, FromJSON)
 
 makeHandle :: Logger.Handle IO -> Config -> Connection -> ServerAuthorization.Handle IO
-makeHandle logger config connectDB =
+makeHandle hl config c =
   ServerAuthorization.Handle
-    { ServerAuthorization.hCreateUser = hCreateUser logger connectDB,
-      ServerAuthorization.hUserList = hUserList logger connectDB config,
-      ServerAuthorization.hCheckAccount = hCheckAccount logger connectDB,
-      ServerAuthorization.hGetAccount = hGetAccount logger connectDB,
-      ServerAuthorization.hAuthorizationFail = hAuthorizationFail logger,
-      ServerAuthorization.hAdminCheckFail = hAdminCheckFail logger,
-      ServerAuthorization.hCreatorNewsCheckFail = hCreatorNewsCheckFail logger,
-      ServerAuthorization.hCatchErrorAuthorization = hCatchErrorAuthorization logger
+    { ServerAuthorization.hCreateUser = hCreateUser hl c,
+      ServerAuthorization.hUserList = hUserList hl c config,
+      ServerAuthorization.hCheckAccount = hCheckAccount hl c,
+      ServerAuthorization.hGetAccount = hGetAccount hl c,
+      ServerAuthorization.hAuthorizationFail = hAuthorizationFail hl,
+      ServerAuthorization.hAdminCheckFail = hAdminCheckFail hl,
+      ServerAuthorization.hCreatorNewsCheckFail = hCreatorNewsCheckFail hl,
+      ServerAuthorization.hCatchErrorAuthorization = hCatchErrorAuthorization hl
     }
 
 hCatchErrorAuthorization :: Logger.Handle IO -> IO a -> (ServerAuthorization.ErrorAuthorization -> IO a) -> IO a
-hCatchErrorAuthorization logger act react = do
-  Logger.logInfo logger "Catch error authorization"
+hCatchErrorAuthorization hl act react = do
+  Logger.logInfo hl "Catch error authorization"
   catch act react
 
 hCreatorNewsCheckFail :: Logger.Handle IO -> IO ()
-hCreatorNewsCheckFail logger = do
-  Logger.logError logger "Creator news check"
+hCreatorNewsCheckFail hl = do
+  Logger.logError hl "Creator news check"
   throwM ServerAuthorization.ErrorCreatorNewsCheck
 
 hAdminCheckFail :: Logger.Handle IO -> IO ()
-hAdminCheckFail logger = do
-  Logger.logError logger "Admin check"
+hAdminCheckFail hl = do
+  Logger.logError hl "Admin check"
   throwM ServerAuthorization.ErrorAdminCheck
 
 hAuthorizationFail :: Logger.Handle IO -> IO ()
-hAuthorizationFail logger = do
-  Logger.logError logger "Authorization"
+hAuthorizationFail hl = do
+  Logger.logError hl "Authorization"
   throwM ServerAuthorization.ErrorAuthorization
 
 hGetAccount :: Logger.Handle IO -> Connection -> Login -> IO (Maybe UserPublic)
-hGetAccount logger connectDB login = do
-  Logger.logInfo logger "Get account"
-  lUser <- listStreamingRunSelect connectDB $ lookup_ (dbUser webServerDB) (primaryKey $ loginUserT login)
-  return (userTToUserPublic <$> listToMaybe lUser)
+hGetAccount hl c login = do
+  Logger.logInfo hl "Get account"
+  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ loginUserT login)
+  return (userTToUserPublic <$> listToMaybe l)
 
 hCheckAccount :: Logger.Handle IO -> Connection -> Login -> Password -> IO (Maybe UserPublic)
-hCheckAccount logger connectionDB login password = do
-  Logger.logInfo logger "Check account"
-  l <- listStreamingRunSelect connectionDB $ lookup_ (dbUser webServerDB) (primaryKey $ loginUserT login)
+hCheckAccount hl c login p = do
+  Logger.logInfo hl "Check account"
+  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ loginUserT login)
   case l of
     (x : _) -> do
       let px = _userPasswordHash x
-      if px == getHash password
+      if px == getHash p
         then return $ Just $ userTToUserPublic x
         else return Nothing
     [] -> return Nothing
 
 hUserList :: Logger.Handle IO -> Connection -> Config -> OffSet -> Limit -> IO [UserPublic]
-hUserList logger connectionDB config offset limit' = do
-  Logger.logInfo logger "Get user list"
-  lUserPublic <-
-    listStreamingRunSelect connectionDB $
+hUserList hl conn config offset limit' = do
+  Logger.logInfo hl "Get user list"
+  lut <-
+    listStreamingRunSelect conn $
       select $
         limit_ (toInteger limit) $
           offset_ (toInteger offset) $
             orderBy_ (asc_ . _userLogin) $
-              all_ (dbUser webServerDB)
-  return $ fmap userTToUserPublic lUserPublic
+              all_ (_accounts accountDB)
+  return $ fmap userTToUserPublic lut
   where
     limit =
       if (limit' > confLimit config) || (limit' <= 0)
@@ -118,33 +119,33 @@ userTToUserPublic ::
   ) =>
   UserT f ->
   UserPublic
-userTToUserPublic userT =
+userTToUserPublic ut =
   UserPublic
-    { nameUser = _userName userT,
-      loginUser = _userLogin userT,
-      dateCreationUser = _userDateCreation userT,
-      adminUser = _userAdmin userT,
-      makeNewsUser = _userMakeNews userT
+    { nameUser = _userName ut,
+      loginUser = _userLogin ut,
+      dateCreationUser = _userDateCreation ut,
+      adminUser = _userAdmin ut,
+      makeNewsUser = _userMakeNews ut
     }
 
 hCreateUser :: Logger.Handle IO -> Connection -> Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> IO UserPublic
-hCreateUser logger connectDB name login password flagMNews flagAdmin = do
-  Logger.logInfo logger "Create user"
-  lUserT <- listStreamingRunSelect connectDB $ lookup_ (dbUser webServerDB) (primaryKey $ loginUserT login)
-  case lUserT of
+hCreateUser hl c name login password flagMN flagA = do
+  Logger.logInfo hl "Create user"
+  l <- listStreamingRunSelect c $ lookup_ (_accounts accountDB) (primaryKey $ loginUserT login)
+  case l of
     [] -> do
       (UTCTime day _) <- getCurrentTime
       _ <-
-        BPC.runInsert connectDB $
-          insert (dbUser webServerDB) $
+        BPC.runInsert c $
+          insert (_accounts accountDB) $
             insertValues
               [ UserT
                   { _userName = name,
                     _userLogin = login,
                     _userPasswordHash = getHash password,
                     _userDateCreation = day,
-                    _userAdmin = flagAdmin,
-                    _userMakeNews = flagMNews
+                    _userAdmin = flagA,
+                    _userMakeNews = flagMN
                   }
               ]
       return $
@@ -152,8 +153,8 @@ hCreateUser logger connectDB name login password flagMNews flagAdmin = do
           { nameUser = name,
             loginUser = login,
             dateCreationUser = day,
-            adminUser = flagAdmin,
-            makeNewsUser = flagMNews
+            adminUser = flagA,
+            makeNewsUser = flagMN
           }
     (x : _) -> do
       return $
@@ -178,3 +179,32 @@ loginUserT login =
       _userAdmin = undefined,
       _userMakeNews = undefined
     }
+
+-- UserT for beam
+
+data UserT f = UserT
+  { _userName :: Columnar f Name,
+    _userLogin :: Columnar f Login,
+    _userPasswordHash :: Columnar f ByteString,
+    _userDateCreation :: Columnar f Day,
+    _userAdmin :: Columnar f FlagAdmin,
+    _userMakeNews :: Columnar f FlagMakeNews
+  }
+  deriving (Generic, Beamable)
+
+type UserTId = UserT Identity
+
+type UserId = PrimaryKey UserT Identity
+
+instance Table UserT where
+  data PrimaryKey UserT f = UserId (Columnar f Login)
+    deriving (Generic, Beamable)
+  primaryKey = UserId . _userLogin
+
+newtype AccountDB f = AccountDB
+  {_accounts :: f (TableEntity UserT)}
+  deriving (Generic)
+  deriving anyclass (Database be)
+
+accountDB :: DatabaseSettings be AccountDB
+accountDB = defaultDbSettings
