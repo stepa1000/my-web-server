@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.35.1.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 
@@ -35,6 +35,7 @@ library
       Data.Config
       Data.Imp.Database
       Data.Imp.Migration
+      Data.Imp.OldDataBase.Database
       Data.Imp.Server
       Data.Imp.Server.Authorization
       Data.Imp.Server.Category
@@ -57,6 +58,7 @@ library
     , base >=4.7 && <5
     , base64
     , beam-core
+    , beam-migrate
     , beam-postgres
     , binary
     , bytestring
@@ -64,15 +66,12 @@ library
     , config-value
     , containers
     , cryptonite
-    , directory
     , exceptions
     , hspec
     , http-client
     , http-client-tls
     , memory
     , mtl
-    , postgresql-migration
-    , postgresql-simple
     , random
     , servant
     , servant-client
@@ -81,7 +80,6 @@ library
     , time
     , transformers-base
     , unix
-    , utility-ht
     , uuid
     , vector
     , warp
@@ -102,6 +100,7 @@ executable my-web-server-exe
     , base >=4.7 && <5
     , base64
     , beam-core
+    , beam-migrate
     , beam-postgres
     , binary
     , bytestring
@@ -109,7 +108,6 @@ executable my-web-server-exe
     , config-value
     , containers
     , cryptonite
-    , directory
     , exceptions
     , hspec
     , http-client
@@ -117,8 +115,6 @@ executable my-web-server-exe
     , memory
     , mtl
     , my-web-server
-    , postgresql-migration
-    , postgresql-simple
     , random
     , servant
     , servant-client
@@ -127,7 +123,6 @@ executable my-web-server-exe
     , time
     , transformers-base
     , unix
-    , utility-ht
     , uuid
     , vector
     , warp
@@ -153,6 +148,7 @@ test-suite my-web-server-test
     , base >=4.7 && <5
     , base64
     , beam-core
+    , beam-migrate
     , beam-postgres
     , binary
     , bytestring
@@ -160,7 +156,6 @@ test-suite my-web-server-test
     , config-value
     , containers
     , cryptonite
-    , directory
     , exceptions
     , hspec
     , http-client
@@ -168,8 +163,6 @@ test-suite my-web-server-test
     , memory
     , mtl
     , my-web-server
-    , postgresql-migration
-    , postgresql-simple
     , random
     , servant
     , servant-client
@@ -178,7 +171,6 @@ test-suite my-web-server-test
     , time
     , transformers-base
     , unix
-    , utility-ht
     , uuid
     , vector
     , warp

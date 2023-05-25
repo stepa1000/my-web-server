@@ -13,56 +13,53 @@ module Data.Imp.Migration
   )
 where
 
--- initialSetup,
-
--- import Database.Beam.Migrate.SQL.Tables
-
--- import Control.Monad.Fail (MonadFail)
-
+import Control.Arrow
 import Data.Config
 import Data.Imp.Database
+import qualified Data.Imp.OldDataBase.Database as Old
 import qualified Data.Imp.Server as Server
 import Database.Beam.Migrate
 import Database.Beam.Migrate.Simple
 import Database.Beam.Postgres
 import qualified Database.Beam.Postgres.Migrate as PG
 import Database.Beam.Query.DataTypes
+import Unsafe.Coerce
 
 initialSetup ::
   Migration
     Postgres
-    (CheckedDatabaseSettings Postgres WebServerDB)
+    (CheckedDatabaseSettings Postgres Old.WebServerDB)
 initialSetup =
-  WebServerDB
+  Old.WebServerDB
     <$> ( createTable "user" $
-            UserT
-              { _userName =
+            Old.UserT
+              { Old._userName =
                   field
                     "name"
                     text
                     notNull,
-                _userLogin =
+                Old._userLogin =
                   field
                     "login"
                     text
                     notNull
                     unique,
-                _userPasswordHash =
+                Old._userPasswordHash =
                   field
                     "passwordHash"
                     bytea
                     notNull,
-                _userDateCreation =
+                Old._userDateCreation =
                   field
                     "dateCreation"
                     date
                     notNull,
-                _userAdmin =
+                Old._userAdmin =
                   field
                     "admin"
                     boolean
                     notNull,
-                _userMakeNews =
+                Old._userMakeNews =
                   field
                     "makeNews"
                     boolean
@@ -70,45 +67,45 @@ initialSetup =
               }
         )
     <*> ( createTable "news" $
-            NewsT
-              { _newsNewsName =
+            Old.NewsT
+              { Old._newsNewsName =
                   field
                     "newsName"
                     text
                     notNull
                     unique,
-                _newsLoginAuthor =
+                Old._newsLoginAuthor =
                   field
                     "loginAuthor"
                     text
                     notNull
                     unique,
-                _newsNameAuthor =
+                Old._newsNameAuthor =
                   field
                     "nameAuthor"
                     text
                     notNull,
-                _newsDateCreation =
+                Old._newsDateCreation =
                   field
                     "dateCreation"
                     date
                     notNull,
-                _newsCategory =
+                Old._newsCategory =
                   field
                     "category"
                     text
                     notNull,
-                _newsContent =
+                Old._newsContent =
                   field
                     "content"
                     text
                     notNull,
-                _newsPhoto =
+                Old._newsPhoto =
                   field
                     "photo"
                     bytea
                     notNull,
-                _newsPublic =
+                Old._newsPublic =
                   field
                     "makeNews"
                     boolean
@@ -116,14 +113,14 @@ initialSetup =
               }
         )
     <*> ( createTable "photo" $
-            PhotoT
-              { _photoUuid =
+            Old.PhotoT
+              { Old._photoUuid =
                   field
                     "uuid"
                     uuid
                     notNull
                     unique,
-                _photoData =
+                Old._photoData =
                   field
                     "data"
                     text
@@ -135,11 +132,67 @@ initialSetupStep ::
   MigrationSteps
     Postgres
     ()
-    (CheckedDatabaseSettings Postgres WebServerDB)
+    (CheckedDatabaseSettings Postgres Old.WebServerDB)
 initialSetupStep =
   migrationStep
     "initial_setup"
     (const initialSetup)
+
+addUUIDsfromNewsCategory ::
+  MigrationSteps
+    Postgres
+    (CheckedDatabaseSettings Postgres Old.WebServerDB)
+    (CheckedDatabaseSettings Postgres WebServerDB)
+addUUIDsfromNewsCategory =
+  migrationStep
+    "add uuid from News and add Category"
+    ( \(Old.WebServerDB userTabl newsTabl photoTabl) -> do
+        newsTabl' <- alterTable newsTabl $ \a -> do
+          newsUUIDNews <- addColumn $ field "uuidNews" uuid notNull unique
+          return $
+            NewsT
+              newsUUIDNews
+              (Old._newsNewsName a)
+              (Old._newsLoginAuthor a)
+              (Old._newsNameAuthor a)
+              (Old._newsDateCreation a)
+              (Old._newsCategory a)
+              (Old._newsContent a)
+              (Old._newsPhoto a)
+              (Old._newsPublic a)
+        photoTabl' <- alterTable photoTabl $ \a -> do
+          uuidPhoto <- renameColumnTo "uuidPhoto" (Old._photoUuid a)
+          return $ PhotoT uuidPhoto (Old._photoData a)
+        catTabl <-
+          createTable "category" $
+            CategoryT
+              { _categoryUuidCategory =
+                  field
+                    "uuidCategory"
+                    uuid
+                    notNull
+                    unique,
+                _categoryCategoryName =
+                  field
+                    "categoryName"
+                    text
+                    notNull,
+                _categoryParent =
+                  field
+                    "parent"
+                    text,
+                _categoryChild =
+                  field
+                    "child"
+                    (unboundedArray text)
+              }
+        return $
+          WebServerDB
+            (unsafeCoerce userTabl)
+            newsTabl'
+            photoTabl'
+            catTabl
+    )
 
 allowDestructive :: (MonadFail m) => BringUpToDateHooks m
 allowDestructive =
@@ -155,7 +208,7 @@ migrateDB conn =
     bringUpToDateWithHooks
       allowDestructive
       PG.migrationBackend
-      initialSetupStep
+      (addUUIDsfromNewsCategory <<< initialSetupStep)
 
 migrateDBServer :: Server.Config -> IO (Maybe (CheckedDatabaseSettings Postgres WebServerDB))
 migrateDBServer s = do
