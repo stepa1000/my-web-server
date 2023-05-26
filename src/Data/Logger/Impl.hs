@@ -28,19 +28,19 @@ data PreConfig = PreConfig
   deriving (Generic, FromJSON, ToJSON)
 
 withPreConf :: PreConfig -> (Logger.Handle IO -> IO a) -> IO a
-withPreConf pc g = do
-  withPreConf' pc (`withHandle` g)
+withPreConf preConfig g = do
+  withPreConf' preConfig (`withHandle` g)
 
 withPreConf' :: PreConfig -> (Config -> IO a) -> IO a
-withPreConf' pc g = do
-  h <- SIO.openFile (preconfFilePath pc) SIO.WriteMode
+withPreConf' preConfig g = do
+  hendlerFile <- SIO.openFile (preconfFilePath preConfig) SIO.WriteMode
   a <-
     g $
       Config
-        { confFileHandle = h,
-          confMinLevel = preconfMinLevel pc
+        { confFileHandle = hendlerFile,
+          confMinLevel = preconfMinLevel preConfig
         }
-  SIO.hClose h
+  SIO.hClose hendlerFile
   return a
 
 data Config = Config
@@ -58,7 +58,7 @@ liftHandleBaseIO ::
   MonadBase IO m =>
   Logger.Handle IO ->
   Logger.Handle m
-liftHandleBaseIO h = Logger.Handle {Logger.hLowLevelLog = \l t -> liftBase $ Logger.hLowLevelLog h l t}
+liftHandleBaseIO logger = Logger.Handle {Logger.hLowLevelLog = \level text -> liftBase $ Logger.hLowLevelLog logger level text}
 
 withHandle :: Config -> (Logger.Handle IO -> IO a) -> IO a
 withHandle config f = do
@@ -67,7 +67,7 @@ withHandle config f = do
   return a
 
 logWith :: Config -> Logger.Level -> T.Text -> IO ()
-logWith conf logLvl t | logLvl >= confMinLevel conf = do
-  T.hPutStrLn (confFileHandle conf) $ T.pack (show logLvl ++ ": ") `T.append` t
-  SIO.hFlush (confFileHandle conf)
+logWith config logLvl text | logLvl >= confMinLevel config = do
+  T.hPutStrLn (confFileHandle config) $ T.pack (show logLvl ++ ": ") `T.append` text
+  SIO.hFlush (confFileHandle config)
 logWith _ _ _ = return ()
