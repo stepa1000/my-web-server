@@ -46,12 +46,12 @@ initialSetup =
                     unique,
                 Old._userPasswordHash =
                   field
-                    "passwordHash"
+                    "password_hash"
                     bytea
                     notNull,
                 Old._userDateCreation =
                   field
-                    "dateCreation"
+                    "date_creation"
                     date
                     notNull,
                 Old._userAdmin =
@@ -61,7 +61,7 @@ initialSetup =
                     notNull,
                 Old._userMakeNews =
                   field
-                    "makeNews"
+                    "make_news"
                     boolean
                     notNull
               }
@@ -70,24 +70,24 @@ initialSetup =
             Old.NewsT
               { Old._newsNewsName =
                   field
-                    "newsName"
+                    "news_name"
                     text
                     notNull
                     unique,
                 Old._newsLoginAuthor =
                   field
-                    "loginAuthor"
+                    "login_luthor"
                     text
                     notNull
                     unique,
                 Old._newsNameAuthor =
                   field
-                    "nameAuthor"
+                    "name_author"
                     text
                     notNull,
                 Old._newsDateCreation =
                   field
-                    "dateCreation"
+                    "date_creation"
                     date
                     notNull,
                 Old._newsCategory =
@@ -148,7 +148,7 @@ addUUIDsfromNewsCategory =
     "add uuid from News and add Category"
     ( \(Old.WebServerDB userTabl newsTabl photoTabl) -> do
         newsTabl' <- alterTable newsTabl $ \a -> do
-          newsUUIDNews <- addColumn $ field "uuidNews" uuid notNull unique
+          newsUUIDNews <- addColumn $ field "uuid_news" uuid notNull unique
           return $
             NewsT
               newsUUIDNews
@@ -161,20 +161,20 @@ addUUIDsfromNewsCategory =
               (Old._newsPhoto a)
               (Old._newsPublic a)
         photoTabl' <- alterTable photoTabl $ \a -> do
-          uuidPhoto <- renameColumnTo "uuidPhoto" (Old._photoUuid a)
+          uuidPhoto <- renameColumnTo "uuid_photo" (Old._photoUuid a)
           return $ PhotoT uuidPhoto (Old._photoData a)
         catTabl <-
           createTable "category" $
             CategoryT
               { _categoryUuidCategory =
                   field
-                    "uuidCategory"
+                    "uuid_category"
                     uuid
                     notNull
                     unique,
                 _categoryCategoryName =
                   field
-                    "categoryName"
+                    "category_name"
                     text
                     notNull,
                 _categoryParent =
