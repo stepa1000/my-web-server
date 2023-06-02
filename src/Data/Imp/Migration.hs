@@ -72,14 +72,12 @@ initialSetup =
                   field
                     "news_name"
                     text
-                    notNull
-                    unique,
+                    notNull,
                 Old._newsLoginAuthor =
                   field
-                    "login_luthor"
+                    "login_author"
                     text
-                    notNull
-                    unique,
+                    notNull,
                 Old._newsNameAuthor =
                   field
                     "name_author"
@@ -107,7 +105,7 @@ initialSetup =
                     notNull,
                 Old._newsPublic =
                   field
-                    "makeNews"
+                    "public"
                     boolean
                     notNull
               }

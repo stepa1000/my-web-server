@@ -20,7 +20,7 @@ import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
 import Test.Hspec
   ( Spec,
-    around,
+    aroundAll,
     describe,
     it,
     shouldBe,
@@ -29,7 +29,7 @@ import Prelude as P
 
 spec :: Spec
 spec =
-  around withDatabase $
+  aroundAll withDatabase $
     describe "server authorization" $ do
       it "hCreateUser" $ \(h, c) -> do
         let name = "name1"
@@ -74,7 +74,8 @@ spec =
                            dateCreationUser = day,
                            adminUser = fa,
                            makeNewsUser = fmn
-                         }
+                         },
+                       UserPublic {nameUser = "tempAdmin", loginUser = "tempAdmin", dateCreationUser = day, adminUser = True, makeNewsUser = False}
                      ]
       it "hCheckAccount" $ \(h, c) -> do
         let name = "name1"

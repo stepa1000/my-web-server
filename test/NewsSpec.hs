@@ -20,7 +20,7 @@ import Prelude as P
 
 spec :: Spec
 spec =
-  around withDatabase $
+  aroundAll withDatabase $
     describe "test for database news" $ do
       it "create News" $ \(h, c) -> do
         n <- handleCreateNews h loginTest nameTest newsCreateTest
@@ -29,7 +29,7 @@ spec =
           BPC.runDelete c $
             delete
               (dbNews webServerDB)
-              (\a -> ISN._newsNewsName a ==. (val_ $ nameNews n))
+              (\a -> _newsNewsName a ==. (val_ $ nameNews n))
         l `shouldBe` [n]
       {-      it "debug simple search news" $ \(h,c)-> do
               n <- handleCreateNews h loginTest nameTest newsCreateTest
@@ -45,7 +45,7 @@ spec =
           BPC.runDelete c $
             delete
               (dbNews webServerDB)
-              (\a -> ISN._newsNewsName a ==. (val_ $ nameNews n))
+              (\a -> _newsNewsName a ==. (val_ $ nameNews n))
         l `shouldBe` [n]
       it "simple search news" $ \(h, c) -> do
         n <- handleCreateNews h loginTest nameTest newsCreateTest
@@ -54,7 +54,7 @@ spec =
           BPC.runDelete c $
             delete
               (dbNews webServerDB)
-              (\a -> ISN._newsNewsName a ==. (val_ $ nameNews n))
+              (\a -> _newsNewsName a ==. (val_ $ nameNews n))
         l `shouldBe` [n]
       it "simple search news date" $ \(h, c) -> do
         n <- handleCreateNews h loginTest nameTest newsCreateTest
@@ -63,7 +63,7 @@ spec =
           BPC.runDelete c $
             delete
               (dbNews webServerDB)
-              (\a -> ISN._newsNewsName a ==. (val_ $ nameNews n))
+              (\a -> _newsNewsName a ==. (val_ $ nameNews n))
         l `shouldBe` [n]
       it "simple search news published" $ \(h, c) -> do
         n <- handleCreateNews h loginTest nameTest newsCreateTest
@@ -72,7 +72,7 @@ spec =
           BPC.runDelete c $
             delete
               (dbNews webServerDB)
-              (\a -> ISN._newsNewsName a ==. (val_ $ nameNews n))
+              (\a -> _newsNewsName a ==. (val_ $ nameNews n))
         l `shouldBe` [n]
       it "simple search news content" $ \(h, c) -> do
         n <- handleCreateNews h loginTest nameTest newsCreateTest
@@ -81,7 +81,7 @@ spec =
           BPC.runDelete c $
             delete
               (dbNews webServerDB)
-              (\a -> ISN._newsNewsName a ==. (val_ $ nameNews n))
+              (\a -> _newsNewsName a ==. (val_ $ nameNews n))
         l `shouldBe` [n]
       it "debug simple search news content" $ \(h, c) -> do
         n <- handleCreateNews h loginTest nameTest newsCreateTest
@@ -90,7 +90,7 @@ spec =
           BPC.runDelete c $
             delete
               (dbNews webServerDB)
-              (\a -> ISN._newsNewsName a ==. (val_ $ nameNews n))
+              (\a -> _newsNewsName a ==. (val_ $ nameNews n))
         l `shouldBe` [n]
       {-      it "debug position" $ \(h,c)-> do
               n <- handleCreateNews h loginTest nameTest newsCreateTest

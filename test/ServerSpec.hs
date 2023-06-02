@@ -24,7 +24,7 @@ import Utils.News
 import Prelude as P
 
 spec :: Spec
-spec = around withServer $
+spec = aroundAll withServer $
   describe "test for servant server" $ do
     it "server is life" $ \ce -> do
       l <-
@@ -219,18 +219,20 @@ withServer :: (ClientEnv -> IO ()) -> IO ()
 withServer g = do
   refb <- newIORef False
   serverConfig <- getServerSettingsTest
-  _ <-
+  thread <-
     forkIO $
       IS.serverTest
         (exitAction refb)
+        3000
         serverConfig
         ( \(w, con) -> do
             w
             delateNews con
             deleteUser con
         )
+  print thread
   m <- newManager defaultManagerSettings
-  url <- (\burl -> burl {baseUrlPort = 3000}) <$> parseBaseUrl "http://localhost" -- "https://127.0.0.1"-- "https://localhost"
+  url <- (\burl -> burl {baseUrlPort = 3000}) <$> parseBaseUrl "http://127.0.0.1" -- "https://127.0.0.1"-- "https://localhost"
   let ce = mkClientEnv m url
   g ce
   writeIORef refb True

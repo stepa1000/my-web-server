@@ -54,7 +54,7 @@ deleteUser c = do
     BPC.runDelete c $
       delete
         (dbUser webServerDB)
-        (\a -> ImpSAuthorization._userLogin a ==. (val_ loginTest))
+        (\a -> _userLogin a ==. (val_ loginTest))
   return ()
 
 withDatabase :: ((SN.Handle IO, Connection) -> IO ()) -> IO ()
