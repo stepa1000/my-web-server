@@ -1,16 +1,11 @@
-module Imp.Pure.Photo where
+module Imp.Pure.Photo (purePhoto, StatePhoto) where
 
-import qualified Control.Logger as Logger
 import Control.Monad
-import qualified Control.Server.Photo as SPhoto
-import Data.Imp.Database
+import Control.Monad.State.Lazy as ST
+import Control.Server.Photo as SPhoto
+import Data.Map
 import Data.Maybe
 import Data.Types
-import Data.UUID
-import Data.Utils
-import Database.Beam
-import Database.Beam.Postgres as Beam
-import Database.Beam.Postgres.Conduit as BPC
 import System.Random
 import Prelude as P
 
@@ -32,4 +27,4 @@ purePutPhoto base64 = do
 
 pureGetPhoto :: Photo -> StatePhoto (Maybe Base64)
 pureGetPhoto photo = do
-  state $ \(mapPhoto, stdgen) -> (lookup photo mapPhoto, (mapPhoto, stdgen))
+  state $ \(mapPhoto, stdgen) -> (Data.Map.lookup photo mapPhoto, (mapPhoto, stdgen))

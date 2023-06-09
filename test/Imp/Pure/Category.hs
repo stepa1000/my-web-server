@@ -1,23 +1,17 @@
-module Imp.Pure.Category where
+module Imp.Pure.Category (pureCategory, getCategory) where
 
-import qualified Control.Logger as Logger
+import Control.Applicative
 import Control.Monad
-import Control.Monad.State.Lazy
-import qualified Control.Server.Category as Category
-import Data.Imp.Database
+import Control.Monad.State.Lazy as ST
+import Control.Server.Category
+import Data.Bifunctor
+import Data.Bool
+import Data.List (head, unzip)
 import Data.Maybe as Maybe
-import Data.Maybes
-import Data.Tree
 import Data.Tree as Tree
 import Data.Types
-import Data.Utils
-import Data.Vector as V
-import Database.Beam.Postgres
-import Database.Beam.Postgres.Conduit as BPC
-import Database.Beam.Query as Beam
-import Database.Beam.Schema.Tables
-import System.Random
-import Prelude as P
+import Prelude (id, ($), (.), (==))
+import qualified Prelude as P
 
 pureCategory :: Handle (State NewsCategory)
 pureCategory =
@@ -33,19 +27,51 @@ pureGetCategory = get
 pureChangeCategory :: Category -> Maybe Category -> Maybe Category -> State NewsCategory ()
 pureChangeCategory name maybeRootNew maybeNewName =
   modify $ \newsCategory ->
-    let foundCategory = (\(Tree n f) -> Tree (maybe n id maybeNewName) f) $ getCategory newsCategory
-     in maybe newsCategory id $ do
-          root <- maybeRootNew
-          return $ setCategory root foundCategory newsCategory
+    let (foundCategory, without) = first (fmap (\(root, Node node forest) -> (root, Node (maybe node id maybeNewName) forest))) $ getCategory name newsCategory
+     in maybe newsCategory id $
+          ( do
+              (_, Node _ forest) <- foundCategory
+              root <- maybeRootNew
+              newName <- maybeNewName
+              oldtree <- without
+              return $ setCategory root (Node newName forest) oldtree
+          )
+            <|> ( do
+                    (_, category) <- foundCategory
+                    root <- maybeRootNew
+                    oldtree <- without
+                    return $ setCategory root category oldtree
+                )
+            <|> ( do
+                    (root, Node _ forest) <- foundCategory
+                    newName <- maybeNewName
+                    oldtree <- without
+                    return $ setCategory root (Node newName forest) oldtree
+                )
 
-getCategory (Tree _ []) = Nothing
-getCategory (Tree node forest)
-  | node == name = Just $ Tree node forest
-  | True = sequence $ Tree (Just node) $ listToMaybe $ catMaybes $ fmap getCategory forest
+getCategory :: Category -> Tree Category -> (Maybe (Category, Tree Category), Maybe (Tree Category))
+getCategory name (Node node forest) = getCategory' node name (Node node forest)
 
-setCategory root tree (Tree node forest)
-  | root == name = Tree node (tree : forest)
-  | True = Tree node $ fmap (setCategory root tree) forest
+getCategory' :: Category -> Category -> Tree Category -> (Maybe (Category, Tree Category), Maybe (Tree Category))
+getCategory' root name (Node node forest)
+  | node == name = (Just (root, Node node forest), Nothing)
+  | not $ P.null forest =
+      ( \((rootNow, trees), retree) ->
+          ( do
+              guard $ not $ P.null rootNow
+              return (head rootNow, head trees),
+            Just $ Node node retree
+          )
+      )
+        $ bimap (unzip . join) join
+        $ unzip
+        $ fmap (bimap maybeToList maybeToList . getCategory' node name) forest
+  | True = (Nothing, Just $ Node node [])
+
+setCategory :: P.Eq t => t -> Tree t -> Tree t -> Tree t
+setCategory root tree (Node node forest)
+  | root == node = Node node (tree : forest)
+  | True = Node node $ fmap (setCategory root tree) forest
 
 pureCreateCategory :: Category -> Category -> State NewsCategory ()
-pureCreateCategory root name = modify $ setCategory root (Tree name [])
+pureCreateCategory root name = ST.modify $ setCategory root (Node name [])

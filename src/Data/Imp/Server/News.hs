@@ -14,6 +14,7 @@ module Data.Imp.Server.News
     debugPosition,
     hSearchContent,
     filterContent',
+    sortNews,
   )
 where
 

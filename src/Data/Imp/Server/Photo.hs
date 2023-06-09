@@ -36,20 +36,15 @@ hGetPhoto :: Logger.Handle IO -> Connection -> Photo -> IO (Maybe Base64)
 hGetPhoto logger connectDB photo = do
   Logger.logInfo logger "Get photo"
   lPhoto <-
-    join . maybeToList
-      <$> traverse
-        ( \photo' ->
-            listStreamingRunSelect connectDB $
-              lookup_
-                (dbPhoto webServerDB)
-                ( primaryKey $
-                    PhotoT
-                      { _photoUuidPhoto = photo',
-                        _photoData = undefined
-                      }
-                )
+    listStreamingRunSelect connectDB $
+      lookup_
+        (dbPhoto webServerDB)
+        ( primaryKey $
+            PhotoT
+              { _photoUuidPhoto = photo,
+                _photoData = undefined
+              }
         )
-        (fromText photo)
   return (_photoData <$> listToMaybe lPhoto)
 
 hPutPhoto :: Logger.Handle IO -> Connection -> Base64 -> IO Photo
@@ -62,4 +57,4 @@ hPutPhoto logger connectDB base64 = do
         insertValues
           [ PhotoT uuID base64
           ]
-  return $ toText uuID
+  return $ uuID

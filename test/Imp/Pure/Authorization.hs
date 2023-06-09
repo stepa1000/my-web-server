@@ -1,28 +1,38 @@
-module Imp.Pure.Authorization where
+{-# LANGUAGE RankNTypes #-}
 
-import Control.Monad.Catch
+module Imp.Pure.Authorization
+  ( DataAuthorization (..),
+    StateAuthorization,
+    pureAuthorization,
+  )
+where
+
+import Control.Monad.Except
 import Control.Monad.State.Lazy
 import Control.Server.Authorization
-import Crypto.Hash
+import Data.Bool
+import Data.Either
 import Data.Imp.Server.Authorization (getHash)
 import Data.Map
-import Data.Typeable
+import Data.Maybe
+import Data.Time.Calendar.OrdinalDate
 import Data.Types
 import Data.User
-import Prelude as P
+import Prelude (snd, ($), (.), (==))
+import qualified Prelude as P
 
 data DataAuthorization = DataAuthorization
   { userDB :: Map Login User
   }
 
-type StateAuthorization = StateT Either Text DataAuthorization
+type StateAuthorization = StateT DataAuthorization (Either ErrorAuthorization)
 
 pureAuthorization :: Handle StateAuthorization
 pureAuthorization =
   Handle
     { hCreateUser = pureCreateUser,
       hUserList = pureUserList,
-      hCheckAccount = pureGetAccount,
+      hCheckAccount = pureCheckAccount,
       hGetAccount = pureGetAccount,
       hAuthorizationFail = pureAuthorizationFail,
       hAdminCheckFail = pureAdminCheckFail,
@@ -31,7 +41,7 @@ pureAuthorization =
     }
 
 pureCreateUser :: Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> StateAuthorization UserPublic
-pureCreateUser name login password flagNameNews flagAdmin = do
+pureCreateUser name login password flagMakeNews flagAdmin = do
   modify
     ( \(DataAuthorization userdb) ->
         DataAuthorization $
@@ -43,8 +53,8 @@ pureCreateUser name login password flagNameNews flagAdmin = do
                       { nameUser = name,
                         loginUser = login,
                         dateCreationUser = fromMondayStartWeek 2023 17 1,
-                        adminUser = flagNameNews,
-                        makeNewsUser = makeNewsUser
+                        adminUser = flagAdmin,
+                        makeNewsUser = flagMakeNews
                       },
                   passwordHashUser = getHash password
                 }
@@ -56,13 +66,13 @@ pureCreateUser name login password flagNameNews flagAdmin = do
       { nameUser = name,
         loginUser = login,
         dateCreationUser = fromMondayStartWeek 2023 17 1,
-        adminUser = flagNameNews,
-        makeNewsUser = makeNewsUser
+        adminUser = flagAdmin,
+        makeNewsUser = flagMakeNews
       }
 
 pureUserList :: OffSet -> Limit -> StateAuthorization [UserPublic]
 pureUserList offSet limit =
-  gets $ take limit . drop offset . fmap (user . snd) . toList
+  gets $ P.take limit . P.drop offSet . fmap (user . snd) . toList . userDB
 
 pureCheckAccount :: Login -> Password -> StateAuthorization (Maybe UserPublic)
 pureCheckAccount login password =
@@ -76,7 +86,7 @@ pureCheckAccount login password =
 
 pureGetAccount :: Login -> StateAuthorization (Maybe UserPublic)
 pureGetAccount login =
-  gets $ fmap user . lookup login
+  gets $ fmap user . lookup login . userDB
 
 pureAuthorizationFail :: StateAuthorization ()
 pureAuthorizationFail = throwError ErrorAuthorization

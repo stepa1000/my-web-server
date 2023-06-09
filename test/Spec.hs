@@ -2,9 +2,9 @@
 {-# OPTIONS_GHC -Wwarn #-}
 
 import qualified AuthorizationSpec
+import qualified CategorySpec
 import Data.Imp.Migration
 import qualified NewsSpec
-import qualified ServerSpec
 import Test.Hspec
 
 main :: IO ()
@@ -13,7 +13,7 @@ main = do
   hspec spec
 
 spec :: Spec
-spec =
+spec = do
   AuthorizationSpec.spec
-    >>= (const NewsSpec.spec)
-    >>= (const ServerSpec.spec)
+  NewsSpec.spec
+  CategorySpec.spec

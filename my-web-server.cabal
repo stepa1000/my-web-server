@@ -76,6 +76,7 @@ library
     , servant
     , servant-client
     , servant-server
+    , string-similarity
     , text
     , time
     , transformers-base
@@ -119,6 +120,7 @@ executable my-web-server-exe
     , servant
     , servant-client
     , servant-server
+    , string-similarity
     , text
     , time
     , transformers-base
@@ -135,9 +137,13 @@ test-suite my-web-server-test
   main-is: Spec.hs
   other-modules:
       AuthorizationSpec
+      CategorySpec
+      Imp.Pure.Authorization
+      Imp.Pure.Category
+      Imp.Pure.News
+      Imp.Pure.Photo
       NewsSpec
-      ServerSpec
-      Utils.News
+      Utils
       Paths_my_web_server
   hs-source-dirs:
       test
@@ -167,6 +173,7 @@ test-suite my-web-server-test
     , servant
     , servant-client
     , servant-server
+    , string-similarity
     , text
     , time
     , transformers-base
