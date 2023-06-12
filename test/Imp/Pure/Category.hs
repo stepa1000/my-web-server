@@ -27,26 +27,23 @@ pureGetCategory = get
 pureChangeCategory :: Category -> Maybe Category -> Maybe Category -> State NewsCategory ()
 pureChangeCategory name maybeRootNew maybeNewName =
   modify $ \newsCategory ->
-    let (foundCategory, without) = first (fmap (\(root, Node node forest) -> (root, Node (maybe node id maybeNewName) forest))) $ getCategory name newsCategory
-     in maybe newsCategory id $
+    let (foundCategory, without) = first (fmap (\(root, Node node forest) -> (root, Node (fromMaybe node maybeNewName) forest))) $ getCategory name newsCategory
+     in fromMaybe newsCategory $
           ( do
               (_, Node _ forest) <- foundCategory
               root <- maybeRootNew
               newName <- maybeNewName
-              oldtree <- without
-              return $ setCategory root (Node newName forest) oldtree
+              setCategory root (Node newName forest) <$> without
           )
             <|> ( do
                     (_, category) <- foundCategory
                     root <- maybeRootNew
-                    oldtree <- without
-                    return $ setCategory root category oldtree
+                    setCategory root category <$> without
                 )
             <|> ( do
                     (root, Node _ forest) <- foundCategory
                     newName <- maybeNewName
-                    oldtree <- without
-                    return $ setCategory root (Node newName forest) oldtree
+                    setCategory root (Node newName forest) <$> without
                 )
 
 getCategory :: Category -> Tree Category -> (Maybe (Category, Tree Category), Maybe (Tree Category))
@@ -66,12 +63,12 @@ getCategory' root name (Node node forest)
         $ bimap (unzip . join) join
         $ unzip
         $ fmap (bimap maybeToList maybeToList . getCategory' node name) forest
-  | True = (Nothing, Just $ Node node [])
+  | otherwise = (Nothing, Just $ Node node [])
 
 setCategory :: P.Eq t => t -> Tree t -> Tree t -> Tree t
 setCategory root tree (Node node forest)
   | root == node = Node node (tree : forest)
-  | True = Node node $ fmap (setCategory root tree) forest
+  | otherwise = Node node $ fmap (setCategory root tree) forest
 
 pureCreateCategory :: Category -> Category -> State NewsCategory ()
 pureCreateCategory root name = ST.modify $ setCategory root (Node name [])

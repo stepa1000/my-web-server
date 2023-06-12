@@ -20,18 +20,23 @@ import Test.Hspec
 import Utils
 import Prelude as P
 
+name = "name1"
+
+login = "login1"
+
+password = "password1"
+
+flagMakeNews = False
+
+flagAdmin = False
+
 spec :: Spec
 spec =
   describe
     "server authorization"
     $ do
       it "hCreateUser" $ do
-        let name = "name1"
-        let login = "login1"
-        let password = "password1"
-        let flagMakeNews = False
-        let flagAdmin = False
-        userCreate <- return $ fromRight undefined $ stateExeT stateAuth $ SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
+        let userCreate = fromRight undefined $ stateExeT stateAuth $ SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
         userCreate
           `shouldBe` ( UserPublic
                          { nameUser = name,
@@ -42,14 +47,6 @@ spec =
                          }
                      )
       it "hUserList" $ do
-        let name = "name1"
-        let login = "login1"
-        let password = "password1"
-        let flagMakeNews = False
-        let flagAdmin = False
-        lUser <- return $ fromRight undefined $ stateExeT stateAuth $ do
-          _ <- SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
-          SAuthorization.hUserList pureAuthorization 0 3
         lUser
           `shouldBe` [ UserPublic
                          { nameUser = name,
@@ -60,14 +57,6 @@ spec =
                          }
                      ]
       it "hCheckAccount" $ do
-        let name = "name1"
-        let login = "login1"
-        let password = "password1"
-        let flagMakeNews = False
-        let flagAdmin = False
-        checkUser <- return $ fromRight undefined $ stateExeT stateAuth $ do
-          _ <- SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
-          SAuthorization.hCheckAccount pureAuthorization login password
         checkUser
           `shouldBe` ( Just $
                          UserPublic
@@ -79,14 +68,6 @@ spec =
                            }
                      )
       it "hGetAccount" $ do
-        let name = "name1"
-        let login = "login1"
-        let password = "password1"
-        let flagMakeNews = False
-        let flagAdmin = False
-        checkUser <- return $ fromRight undefined $ stateExeT stateAuth $ do
-          _ <- SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
-          SAuthorization.hGetAccount pureAuthorization login
         checkUser
           `shouldBe` ( Just $
                          UserPublic
@@ -97,6 +78,16 @@ spec =
                              makeNewsUser = flagMakeNews
                            }
                      )
+  where
+    lUser = fromRight undefined $ stateExeT stateAuth $ do
+      _ <- SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
+      SAuthorization.hUserList pureAuthorization 0 3
+    checkUser = fromRight undefined $ stateExeT stateAuth $ do
+      _ <- SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
+      SAuthorization.hCheckAccount pureAuthorization login password
+    checkUser = fromRight undefined $ stateExeT stateAuth $ do
+      _ <- SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
+      SAuthorization.hGetAccount pureAuthorization login
 
 day :: Day
 day = fromMondayStartWeek 2023 17 1

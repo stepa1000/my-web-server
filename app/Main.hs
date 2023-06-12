@@ -1,5 +1,6 @@
 module Main (main) where
 
+import Control.Monad
 import Data.Config
 import Data.Imp.Migration
 import Data.Imp.Server
@@ -14,6 +15,4 @@ actExit :: IO ()
 actExit = do
   putStrLn "print exit for exit"
   s <- getLine
-  if s == "exit"
-    then return ()
-    else actExit
+  unless (s == "exit") actExit

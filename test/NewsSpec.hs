@@ -27,40 +27,40 @@ spec :: Spec
 spec = do
   describe "News" $ do
     it "hSearchNews" $ do
-      lNews <-
-        return $
-          stateExe statePhoto $
-            stateExeT stateNews $
-              hSearchNews (pureNews dayTest) Nothing (emptySearch {mNewsName = Just "testNews"})
-      lNews `shouldBe` [testNews]
+      lNewsSearch `shouldBe` [testNews]
     it "hPutNews" $ do
-      lNews <- return $ stateExe statePhoto $ stateExeT stateNews $ do
-        hPutNews (pureNews dayTest) testNews3
-        hSearchNews (pureNews dayTest) Nothing (emptySearch {mNewsName = Just "testNews3"})
-      lNews `shouldBe` [testNews3]
+      lNewsPut `shouldBe` [testNews3]
     it "hGenUUID" $ do
-      uuid <- return $ stateExe statePhoto $ stateExeT stateNews $ hGenUUID (pureNews dayTest)
+      let uuid = stateExe statePhoto $ stateExeT stateNews $ hGenUUID (pureNews dayTest)
       print uuid
     it "hGetNews" $ do
-      mNews <- return $ stateExe statePhoto $ stateExeT stateNews $ hGetNews (pureNews dayTest) (uuidNews testNews)
-      mNews `shouldBe` (Just testNews)
+      let mNews = stateExe statePhoto $ stateExeT stateNews $ hGetNews (pureNews dayTest) (uuidNews testNews)
+      mNews `shouldBe` Just testNews
     it "hModifNews" $ do
-      modNews <- return $ stateExe statePhoto $ stateExeT stateNews $ do
-        hModifNews (pureNews dayTest) (uuidNews testNews) (\test1 -> test1 {textNews = "newContent"})
-        hGetNews (pureNews dayTest) (uuidNews testNews)
-      modNews `shouldBe` (Just (testNews {textNews = "newContent"}))
+      modNews `shouldBe` Just (testNews {textNews = "newContent"})
     it "hGetDay" $ do
-      day <- return $ stateExe statePhoto $ stateExeT stateNews $ hGetDay (pureNews dayTest)
+      let day = stateExe statePhoto $ stateExeT stateNews $ hGetDay (pureNews dayTest)
       day `shouldBe` dayTest
   describe "Photos" $ do
     it "hPutPhoto" $ do
-      base64 <- return $ stateExe statePhoto $ stateExeT stateNews $ do
-        uuidPhoto <- hPutPhoto (handlePhoto (pureNews dayTest)) "photoimg"
-        hGetPhoto (handlePhoto (pureNews dayTest)) uuidPhoto
-      base64 `shouldBe` (Just "photoimg")
+      base64Put `shouldBe` Just "photoimg"
     it "hGetPhoto" $ do
-      base64 <- return $ stateExe statePhoto $ stateExeT stateNews $ hGetPhoto (handlePhoto (pureNews dayTest)) uuidtestPhoto
-      base64 `shouldBe` (Just base64testPhoto)
+      let base64 = stateExe statePhoto $ stateExeT stateNews $ hGetPhoto (handlePhoto (pureNews dayTest)) uuidtestPhoto
+      base64 `shouldBe` Just base64testPhoto
+  where
+    lNewsSearch =
+      stateExe statePhoto $
+        stateExeT stateNews $
+          hSearchNews (pureNews dayTest) Nothing (emptySearch {mNewsName = Just "testNews"})
+    lNewsPut = stateExe statePhoto $ stateExeT stateNews $ do
+      hPutNews (pureNews dayTest) testNews3
+      hSearchNews (pureNews dayTest) Nothing (emptySearch {mNewsName = Just "testNews3"})
+    modNews = stateExe statePhoto $ stateExeT stateNews $ do
+      hModifNews (pureNews dayTest) (uuidNews testNews) (\test1 -> test1 {textNews = "newContent"})
+      hGetNews (pureNews dayTest) (uuidNews testNews)
+    base64Put = stateExe statePhoto $ stateExeT stateNews $ do
+      uuidPhoto <- hPutPhoto (handlePhoto (pureNews dayTest)) "photoimg"
+      hGetPhoto (handlePhoto (pureNews dayTest)) uuidPhoto
 
 dayTest :: Day
 dayTest = fromMondayStartWeek 2023 42 7

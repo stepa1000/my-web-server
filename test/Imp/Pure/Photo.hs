@@ -20,7 +20,7 @@ purePhoto =
 
 purePutPhoto :: Base64 -> StatePhoto Photo
 purePutPhoto base64 = do
-  stdgen <- gets $ snd
+  stdgen <- gets snd
   let (uuidPhoto, stdgen2) = random stdgen
   modify $ \(mapPhoto, _) -> (insert uuidPhoto base64 mapPhoto, stdgen2)
   return uuidPhoto

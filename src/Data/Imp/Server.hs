@@ -33,7 +33,6 @@ import Data.User
 import Data.Vector as V
 import Database.Beam
 import Database.Beam.Postgres as Beam
-import Network.Wai.Handler.Warp
 import Network.Wai.Handler.Warp as Warp
 import Servant.API
 import Servant.Server as Servant

@@ -21,18 +21,19 @@ spec :: Spec
 spec =
   describe "category for news" $ do
     it "hGetCategory" $ do
-      generalCategory <- return $ stateExe stateCategory $ hGetCategory pureCategory
-      generalCategory `shouldBe` (Node "General" [Node "test" []])
+      let generalCategory = stateExe stateCategory $ hGetCategory pureCategory
+      generalCategory `shouldBe` Node "General" [Node "test" []]
     it "hCreateCategory" $ do
-      testCategory <- return $ stateExe stateCategory $ do
-        hCreateCategory pureCategory "General" "test2"
-        hGetCategory pureCategory
-      testCategory `shouldBe` (Node "General" [Node "test2" [], Node "test" []])
+      testCategory `shouldBe` Node "General" [Node "test2" [], Node "test" []]
     it "hChangeCategory" $ do
-      testCategory <- return $ stateExe stateCategory $ do
-        hChangeCategory pureCategory "test" (Just "General") (Just "test1")
-        hGetCategory pureCategory
-      testCategory `shouldBe` (Node "General" [Node "test1" []])
+      testCategory `shouldBe` Node "General" [Node "test1" []]
+  where
+    testCategory = stateExe stateCategory $ do
+      hCreateCategory pureCategory "General" "test2"
+      hGetCategory pureCategory
+    testCategory = stateExe stateCategory $ do
+      hChangeCategory pureCategory "test" (Just "General") (Just "test1")
+      hGetCategory pureCategory
 
 stateCategory :: Tree Category
 stateCategory = Node "General" [Node "test" []]

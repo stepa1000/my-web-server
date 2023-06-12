@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -57,4 +55,4 @@ hPutPhoto logger connectDB base64 = do
         insertValues
           [ PhotoT uuID base64
           ]
-  return $ uuID
+  return uuID

@@ -21,7 +21,7 @@ import Data.User
 import Prelude (snd, ($), (.), (==))
 import qualified Prelude as P
 
-data DataAuthorization = DataAuthorization
+newtype DataAuthorization = DataAuthorization
   { userDB :: Map Login User
   }
 
@@ -80,9 +80,9 @@ pureCheckAccount login password =
   where
     checkAccount mapUser = do
       account <- lookup login mapUser
-      case passwordHashUser account == getHash password of
-        True -> return $ user account
-        False -> Nothing
+      if passwordHashUser account == getHash password
+        then return $ user account
+        else Nothing
 
 pureGetAccount :: Login -> StateAuthorization (Maybe UserPublic)
 pureGetAccount login =
