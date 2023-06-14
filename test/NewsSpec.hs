@@ -1,245 +1,124 @@
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module NewsSpec (spec) where
 
+import Control.Monad.State.Lazy
+import Control.Server.News
+import Control.Server.Photo
+import Data.Map as Map
+import Data.Maybe
+import Data.News
+import Data.Text
+import Data.Time.Calendar.OrdinalDate
+import Data.Types
+import Data.UUID
+import Imp.Pure.News
+import System.Random
+import Test.Hspec
+  ( Spec,
+    describe,
+    it,
+    shouldBe,
+  )
+import Utils
 import Prelude as P
 
-import Database.Beam
---import Database.Beam.Postgres as Beam
-import Database.Beam.Postgres.Conduit as BPC
-
---import Data.Time.Clock
---import Data.Maybe
-import Data.Text
--- import qualified Data.ByteString as B
---import Data.Vector as V
-
-import Test.Hspec 
-  ({-Expectation,-} Spec, around, describe, it, shouldBe {-, shouldNotBe, shouldSatisfy-})
---import Test.QuickCheck (NonNegative (..), property, (==>))
-
-import Data.News
---import Data.User
-import Data.Types
-
-import Control.Server.News as SN
-import Data.Imp.Server.News as ISN
-
-import Utils.News
-
---import qualified Control.Server.Authorization as SAuthorization
---import qualified Data.Imp.Server.Authorization as ImpSAuthorization
-
 spec :: Spec
-spec = 
-  around withDatabase $
-    describe "test for database news" $ do
-      it "create News" $ \(h,c) -> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest
-        l <- handleFind h emptySearch
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
-{-      it "debug simple search news" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest
-        l <- hSearchNewsName 3 c "nameNews"
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
--}
-      it "simple search news full" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest 
-        l <- handleFind h $ idSearch n -- emptySearch {mName = Just "nameNews" }
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
-      it "simple search news" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest 
-        l <- handleFind h $ emptySearch {mNewsName = Just "nameNews" }
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
-      it "simple search news date" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest 
-        l <- handleFind h $ dateSearch n
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
-      it "simple search news published" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest 
-        l <- handleFind h $ publicSearch n
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
-      it "simple search news content" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest 
-        l <- handleFind h $ contentSearch n
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
-      it "debug simple search news content" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest 
-        l <- hSearchContent 3 c (pack $ "textNews") -- handleFind h $ contentSearch n
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        l `shouldBe` [n]
-{-      it "debug position" $ \(h,c)-> do
-        n <- handleCreateNews h loginTest nameTest newsCreateTest 
-        b <- debugPosition c (pack $ "textNews") -- handleFind h $ contentSearch n
-        _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-               (\a-> ISN._newsNewsName a ==. (val_ $ nameNews n))
-        b `shouldBe` B.empty
--}
-      it "search news" $ \(h,c) -> do
-        _ <- handleCreateNewsTestN h 10
-        l <- handleFind h $ emptySearch {mNewsName = Just "nameNews5" } -- {mForString = Just "nameNews"}
-        delateNews c
-        (fmap textNews l) `shouldBe` ["textNews5"]
+spec = do
+  describe "News" $ do
+    it "hSearchNews" $ do
+      lNewsSearch `shouldBe` [testNews]
+    it "hPutNews" $ do
+      lNewsPut `shouldBe` [testNews3]
+    it "hGenUUID" $ do
+      let uuid = stateExe statePhoto $ stateExeT stateNews $ hGenUUID (pureNews dayTest)
+      uuid `shouldBe` uuid
+    it "hGetNews" $ do
+      let mNews = stateExe statePhoto $ stateExeT stateNews $ hGetNews (pureNews dayTest) (uuidNews testNews)
+      mNews `shouldBe` Just testNews
+    it "hModifNews" $ do
+      modNews `shouldBe` Just (testNews {textNews = "newContent"})
+    it "hGetDay" $ do
+      let day = stateExe statePhoto $ stateExeT stateNews $ hGetDay (pureNews dayTest)
+      day `shouldBe` dayTest
+  describe "Photos" $ do
+    it "hPutPhoto" $ do
+      base64Put `shouldBe` Just "photoimg"
+    it "hGetPhoto" $ do
+      let base64 = stateExe statePhoto $ stateExeT stateNews $ hGetPhoto (handlePhoto (pureNews dayTest)) uuidtestPhoto
+      base64 `shouldBe` Just base64testPhoto
+  where
+    lNewsSearch =
+      stateExe statePhoto $
+        stateExeT stateNews $
+          hSearchNews (pureNews dayTest) Nothing (emptySearch {mNewsName = Just "testNews"})
+    lNewsPut = stateExe statePhoto $ stateExeT stateNews $ do
+      hPutNews (pureNews dayTest) testNews3
+      hSearchNews (pureNews dayTest) Nothing (emptySearch {mNewsName = Just "testNews3"})
+    modNews = stateExe statePhoto $ stateExeT stateNews $ do
+      hModifNews (pureNews dayTest) (uuidNews testNews) (\test1 -> test1 {textNews = "newContent"})
+      hGetNews (pureNews dayTest) (uuidNews testNews)
+    base64Put = stateExe statePhoto $ stateExeT stateNews $ do
+      uuidPhoto <- hPutPhoto (handlePhoto (pureNews dayTest)) "photoimg"
+      hGetPhoto (handlePhoto (pureNews dayTest)) uuidPhoto
+
+dayTest :: Day
+dayTest = fromMondayStartWeek 2023 42 7
+
+stateNews :: Map UUID News
+stateNews = Map.singleton (uuidNews testNews) testNews <> Map.singleton (uuidNews testNews2) testNews2
+
+testNews, testNews2, testNews3 :: News
+(testNews, testNews2, testNews3) = stateExe (fst statePhoto, mkStdGen 1) $ stateExeT stateNews $ do
+  t1 <-
+    handleCreateNewsTest
+      (pureNews dayTest)
+      ( exempleNewsCreate
+          { nameNewsCreate = "testNews"
+          }
+      )
+  t2 <-
+    handleCreateNewsTest
+      (pureNews dayTest)
+      ( exempleNewsCreate
+          { nameNewsCreate = "testNews2"
+          }
+      )
+  t3 <-
+    handleCreateNewsTest
+      (pureNews dayTest)
+      ( exempleNewsCreate
+          { nameNewsCreate = "testNews3"
+          }
+      )
+  return (t1, t2, t3)
+
+uuidtestPhoto :: UUID
+uuidtestPhoto = fromJust $ fromString "c2cc10e1-57d6-4b6f-9899-38d972112d8c"
+
+base64testPhoto :: Base64
+base64testPhoto = pack "base64TestPhoto"
+
+statePhoto :: (Map Photo Base64, StdGen)
+statePhoto = (Map.singleton uuidtestPhoto base64testPhoto, mkStdGen 2)
+
+handleCreateNewsTest :: Monad m => Control.Server.News.Handle m -> NewsCreate -> m News
+handleCreateNewsTest h = handleCreateNews h loginTest nameTest
+
 {-
-addUser :: SAuthorization.Handle IO -> IO ()
-addUser h = do
-  _ <- SAuthorization.hCreateUser h nameTest loginTest passwordTest True False
-  return ()
-
-deleteUser :: Connection -> IO ()
-deleteUser c = do
-  _ <- BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
-          (\a-> ImpSAuthorization._userLogin a ==. (val_ loginTest) )
-  return ()
-
-withDatabase :: ((SN.Handle IO, Connection) -> IO ()) -> IO ()
-withDatabase f = do 
-  c <- Beam.connect testDBConnect
-  let hAuth = ImpSAuthorization.makeHandle configAuthorization c
-  addUser hAuth
-  let h = ISN.makeHandle configNews c
-  delateNews c
-  -- _ <- handleCreateNewsTestN h 10
-  f (h,c)
-  deleteUser c
-  delateNews c
-  Beam.close c
-
-configNews :: ISN.Config 
-configNews = ISN.Config
-  { confMaxLimit = 3}
-
-configAuthorization :: ImpSAuthorization.Config
-configAuthorization = ImpSAuthorization.Config
-  { ImpSAuthorization.confLimit = 3
-  }
-
-testDBConnect :: ConnectInfo
-testDBConnect = defaultConnectInfo {connectUser="stepan", connectDatabase = "testDB"}
-
-delateNews :: Connection -> IO ()
-delateNews c = do
-  _ <- BPC.runDelete c $ delete (ISN._news ISN.newsDB)
-    (\_-> val_ True)-- (\a-> ISN._newsName a ==. (val_ $ nameNews n))
-  return ()
-
-handleCreateNewsTestN :: Monad m => SN.Handle m -> Int -> m [News]
-handleCreateNewsTestN h i = handleCreateNewsTest h (newsCreateN i)
-
-handleCreateNewsTest :: Monad m => SN.Handle m -> [NewsCreate] -> m [News]
-handleCreateNewsTest h = P.mapM (handleCreateNews h loginTest nameTest)
-
+newsCreateTest :: NewsCreate
+newsCreateTest =
+  NewsCreate
+    { nameNewsCreate = pack $ "nameNews",
+      categoryNewsCreate = pack $ "General",
+      textNewsCreate = pack $ "textNews",
+      photoNewsCreate = V.empty,
+      newPhotoNewsCreate = V.empty,
+      publicNewsCreate = False
+    }
+-}
 loginTest :: Login
 loginTest = "loginTest"
 
 nameTest :: Name
 nameTest = "nameTest"
-
-passwordTest :: Password
-passwordTest = "testPassword"
-
-dateSearch :: News -> Search
-dateSearch n = Search
-  { mDayAtSearch = Just $ dateCreationNews n
-  , mDayUntil = Just $ dateCreationNews n
-  , mDaySince = Just $ dateCreationNews n
-  , mAuthor = Nothing -- Author
-  , mCategory = Nothing --"General"
-  , mNewsName = Nothing
-  , mContent = Nothing
-  , mForString = Nothing
-  , mFlagPublished = Nothing
-  , mSortBy = Nothing
-  , mOffSet = Nothing
-  , mLimit = Nothing
-  }
-
-publicSearch :: News -> Search
-publicSearch n = Search
-  { mDayAtSearch = Nothing
-  , mDayUntil = Nothing
-  , mDaySince = Nothing
-  , mAuthor = Nothing -- Author
-  , mCategory = Nothing --"General"
-  , mNewsName = Nothing
-  , mContent = Nothing
-  , mForString = Nothing
-  , mFlagPublished = Just $ publicNews n
-  , mSortBy = Nothing
-  , mOffSet = Nothing
-  , mLimit = Nothing
-  }
-
-contentSearch :: News -> Search
-contentSearch n = Search
-  { mDayAtSearch = Nothing
-  , mDayUntil = Nothing
-  , mDaySince = Nothing
-  , mAuthor = Nothing -- Author
-  , mCategory = Nothing --"General"
-  , mNewsName = Nothing
-  , mContent = Just $ textNews n
-  , mForString = Nothing
-  , mFlagPublished = Nothing
-  , mSortBy = Nothing
-  , mOffSet = Nothing
-  , mLimit = Nothing
-  }
-
-idSearch :: News -> Search
-idSearch n = Search
-  { mDayAtSearch = Just $ dateCreationNews n
-  , mDayUntil = Just $ dateCreationNews n
-  , mDaySince = Just $ dateCreationNews n
-  , mAuthor = Just $ nameAuthor n -- Author
-  , mCategory = Just $ categoryNews n --"General"
-  , mNewsName = Just $ nameNews n
-  , mContent = Just $ textNews n
-  , mForString = Nothing
-  , mFlagPublished = Just $ publicNews n
-  , mSortBy = Nothing
-  , mOffSet = Nothing
-  , mLimit = Nothing
-  }
-
-newsCreateTest :: NewsCreate
-newsCreateTest = NewsCreate 
-  { nameNewsCreate = pack $ "nameNews"
-  , categoryNewsCreate = pack $ "General"
-  , textNewsCreate = pack $ "textNews"
-  , photoNewsCreate = V.empty
-  , newPhotoNewsCreate = V.empty
-  , publicNewsCreate = False
-  }
-
-newsCreateN :: Int -> [NewsCreate]
-newsCreateN i = fmap f [0..i]
-  where
-    f j = NewsCreate 
-      { nameNewsCreate = pack $ "nameNews" P.++ (show j)
-      , categoryNewsCreate = pack $ "General"
-      , textNewsCreate = pack $ "textNews" P.++ (show j)
-      , photoNewsCreate = V.empty
-      , newPhotoNewsCreate = V.empty
-      , publicNewsCreate = False
-      }
--}

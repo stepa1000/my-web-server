@@ -17,8 +17,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver:
-  url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/4.yaml
+resolver: lts-20.24
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -42,6 +41,10 @@ packages:
 #
 extra-deps:
 - config-value-0.8.3@sha256:94f504c5c7ad950f7154950e2850ee7db80bd0c0271e945d452332192cb1a4b8,1905
+- git: https://github.com/mwotton/string-similarity
+  commit: ea90acf5ae544d5cbf5dc2bd501aef00074ba5f0
+- git: https://github.com/bos/suffixtree
+  commit: adf9dd03d299a5b5ee1907fe2a63c9459a6f9a73
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

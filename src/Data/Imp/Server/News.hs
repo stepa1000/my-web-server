@@ -11,9 +11,10 @@
 module Data.Imp.Server.News
   ( Config (..),
     makeHandle,
-    NewsT (..),
-    hSearchContent,
     debugPosition,
+    hSearchContent,
+    filterContent',
+    sortNews,
   )
 where
 

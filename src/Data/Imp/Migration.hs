@@ -1,95 +1,226 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Data.Imp.Migration
-  ( runMigrationFiles,
-    migrationMain,
-    migrationTest,
+  ( initialSetup,
+    initialSetupStep,
+    migrateDB,
+    migrateDBServer,
+    migrationDBServerMain,
+    migrationDBServerTest,
   )
 where
 
-import Data.Char
+import Control.Arrow
 import Data.Config
+import Data.Imp.Database
+import qualified Data.Imp.OldDataBase.Database as Old
 import qualified Data.Imp.Server as Server
-import Data.List (delete)
-import Data.List.Key as LK
+import Database.Beam.Migrate
+import Database.Beam.Migrate.Simple
 import Database.Beam.Postgres
-import Database.PostgreSQL.Simple.Migration
-import System.Directory
-import Prelude as P
+import qualified Database.Beam.Postgres.Migrate as PG
+import Database.Beam.Query.DataTypes
+import Unsafe.Coerce
 
--- | Check and apply all current up to the relevant version of the migration for the database.
---
--- The file migration check function is called,
--- then if the migration is not applied,
--- it is primed, otherwise it is skipped.
---
--- Migration is needed to synchronize the database with the code accessing the database.
-runMigrationFiles :: ConnectInfo -> [(ScriptName, FilePath)] -> IO [MigrationResult String]
-runMigrationFiles info lScriptPath = do
-  connectDB <- connect info
-  initMigration <- runInitMigration connectDB
-  lOutMigration <-
-    mapM
-      ( \(name, path) -> do
-          runMigrationFile connectDB name path
-      )
-      lScriptPath
-  return $ initMigration : lOutMigration
+initialSetup ::
+  Migration
+    Postgres
+    (CheckedDatabaseSettings Postgres Old.WebServerDB)
+initialSetup =
+  Old.WebServerDB
+    <$> ( createTable "user" $
+            Old.UserT
+              { Old._userName =
+                  field
+                    "name"
+                    text
+                    notNull,
+                Old._userLogin =
+                  field
+                    "login"
+                    text
+                    notNull
+                    unique,
+                Old._userPasswordHash =
+                  field
+                    "password_hash"
+                    bytea
+                    notNull,
+                Old._userDateCreation =
+                  field
+                    "date_creation"
+                    date
+                    notNull,
+                Old._userAdmin =
+                  field
+                    "admin"
+                    boolean
+                    notNull,
+                Old._userMakeNews =
+                  field
+                    "make_news"
+                    boolean
+                    notNull
+              }
+        )
+    <*> ( createTable "news" $
+            Old.NewsT
+              { Old._newsNewsName =
+                  field
+                    "news_name"
+                    text
+                    notNull,
+                Old._newsLoginAuthor =
+                  field
+                    "login_author"
+                    text
+                    notNull,
+                Old._newsNameAuthor =
+                  field
+                    "name_author"
+                    text
+                    notNull,
+                Old._newsDateCreation =
+                  field
+                    "date_creation"
+                    date
+                    notNull,
+                Old._newsCategory =
+                  field
+                    "category"
+                    text
+                    notNull,
+                Old._newsContent =
+                  field
+                    "content"
+                    text
+                    notNull,
+                Old._newsPhoto =
+                  field
+                    "photo"
+                    bytea
+                    notNull,
+                Old._newsPublic =
+                  field
+                    "public"
+                    boolean
+                    notNull
+              }
+        )
+    <*> ( createTable "photo" $
+            Old.PhotoT
+              { Old._photoUuid =
+                  field
+                    "uuid"
+                    uuid
+                    notNull
+                    unique,
+                Old._photoData =
+                  field
+                    "data"
+                    text
+                    notNull
+              }
+        )
 
--- | Checks the initial migration
---
--- First it checks for initialization, and if it fails,
--- it applies the initial state to the database,
--- for subsequent migrations.
-runInitMigration :: Connection -> IO (MigrationResult String)
-runInitMigration connectDB = do
-  outMigration <- runMigration connectDB defaultOptions $ MigrationValidation MigrationInitialization
-  case outMigration of
-    (MigrationError _) -> runMigration connectDB defaultOptions MigrationInitialization
-    a -> return a
+initialSetupStep ::
+  MigrationSteps
+    Postgres
+    ()
+    (CheckedDatabaseSettings Postgres Old.WebServerDB)
+initialSetupStep =
+  migrationStep
+    "initial_setup"
+    (const initialSetup)
 
--- | Checking the unit migration
---
--- The two functions are called, one checks if the migration
--- exists and if it does not, applies a similar function,
--- but with slightly different parameters.
---
--- To be able to create partial migrations to the database for different versions.
-runMigrationFile :: Connection -> ScriptName -> FilePath -> IO (MigrationResult String)
-runMigrationFile connectDB script path = do
-  _ <- putStrLn $ "Check migration: " ++ script
-  outMigration <- runMigration connectDB defaultOptions $ MigrationValidation $ MigrationFile script path
-  case outMigration of
-    (MigrationError _) -> do
-      _ <- putStrLn "Migration applies"
-      runMigration connectDB defaultOptions $ MigrationFile script path
-    a -> do
-      _ <- putStrLn "Migration skip"
-      return a
+addUUIDsfromNewsCategory ::
+  MigrationSteps
+    Postgres
+    (CheckedDatabaseSettings Postgres Old.WebServerDB)
+    (CheckedDatabaseSettings Postgres WebServerDB)
+addUUIDsfromNewsCategory =
+  migrationStep
+    "add uuid from News and add Category"
+    ( \(Old.WebServerDB userTabl newsTabl photoTabl) -> do
+        newsTabl' <- alterTable newsTabl $ \a -> do
+          newsUUIDNews <- addColumn $ field "uuid_news" uuid notNull unique
+          return $
+            NewsT
+              newsUUIDNews
+              (Old._newsNewsName a)
+              (Old._newsLoginAuthor a)
+              (Old._newsNameAuthor a)
+              (Old._newsDateCreation a)
+              (Old._newsCategory a)
+              (Old._newsContent a)
+              (Old._newsPhoto a)
+              (Old._newsPublic a)
+        photoTabl' <- alterTable photoTabl $ \a -> do
+          uuidPhoto <- renameColumnTo "uuid_photo" (Old._photoUuid a)
+          return $ PhotoT uuidPhoto (Old._photoData a)
+        catTabl <-
+          createTable "category" $
+            CategoryT
+              { _categoryUuidCategory =
+                  field
+                    "uuid_category"
+                    uuid
+                    notNull
+                    unique,
+                _categoryCategoryName =
+                  field
+                    "category_name"
+                    text
+                    notNull,
+                _categoryParent =
+                  field
+                    "parent"
+                    text,
+                _categoryChild =
+                  field
+                    "child"
+                    (unboundedArray text)
+              }
+        return $
+          WebServerDB
+            (unsafeCoerce userTabl)
+            newsTabl'
+            photoTabl'
+            catTabl
+    )
 
--- | Combining the name of the veil and the path to it into one tuple.
-unionPathName :: String -> String -> (String, String)
-unionPathName path name = (name, path ++ name)
+allowDestructive :: (MonadFail m) => BringUpToDateHooks m
+allowDestructive =
+  defaultUpToDateHooks
+    { runIrreversibleHook = return True
+    }
 
--- | Applying all available migrations to initialize from a clean database to the current version.
---
--- The body of the function lists the names of the sql-files and specifies the path to the file.
-migrationAll :: ConnectInfo -> IO [MigrationResult String]
-migrationAll info = do
-  fails <- getDirectoryContents "./sql-migration/"
-  runMigrationFiles
-    info
-    (unionPathName "./sql-migration/" <$> (LK.sort (read @Int . takeWhile isDigit) . delete "." . delete "..") fails)
+migrateDB ::
+  Connection ->
+  IO (Maybe (CheckedDatabaseSettings Postgres WebServerDB))
+migrateDB conn =
+  runBeamPostgresDebug putStrLn conn $
+    bringUpToDateWithHooks
+      allowDestructive
+      PG.migrationBackend
+      (addUUIDsfromNewsCategory <<< initialSetupStep)
 
-migrationMain :: IO [MigrationResult String]
-migrationMain = do
-  config <- getServerSettings
-  migrationAll (Server.confConnectionInfo config)
+migrateDBServer :: Server.Config -> IO (Maybe (CheckedDatabaseSettings Postgres WebServerDB))
+migrateDBServer s = do
+  c <- connect (Server.confConnectionInfo s)
+  cds <- migrateDB c
+  close c
+  return cds
 
-migrationTest :: IO [MigrationResult String]
-migrationTest = do
-  config <- getServerSettingsTest
-  migrationAll (Server.confConnectionInfo config)
+migrationDBServerMain :: IO (Maybe (CheckedDatabaseSettings Postgres WebServerDB))
+migrationDBServerMain = do
+  s <- getServerSettings
+  migrateDBServer s
+
+migrationDBServerTest :: IO (Maybe (CheckedDatabaseSettings Postgres WebServerDB))
+migrationDBServerTest = do
+  s <- getServerSettingsTest
+  migrateDBServer s

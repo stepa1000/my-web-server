@@ -42,31 +42,32 @@ data Config = Config
   { confNews :: News.Config,
     confAuthorization :: Authorization.Config,
     confConnectionInfo :: ConnectInfo,
+    confPortServer :: Port,
     confLogger :: ImpLogger.PreConfig
   }
   deriving (Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-server :: IO () -> Config -> IO ()
-server shutdown config = do
+server :: IO () -> Port -> Config -> IO ()
+server shutdown port config = do
   withHandle config $ \hServer -> do
     let app = serveWithContext api (serverContext hServer) (serverT hServer)
     _ <- ServerAuthorization.handleCreatInitAdmin (Server.handleAuthorization hServer) "tempAdmin" "temp" False
-    Warp.runSettings (setting shutdown) app
+    Warp.runSettings (setting port shutdown) app
     return ()
 
-serverTest :: IO () -> Config -> ((IO (), Connection) -> IO ()) -> IO ()
-serverTest shutdown config act = do
+serverTest :: IO () -> Port -> Config -> ((IO (), Connection) -> IO ()) -> IO ()
+serverTest shutdown port config act = do
   withHandleTest config $ \(hServer, connectDB) -> do
     let app = serveWithContext api (serverContext hServer) (serverT hServer)
     nameAdmin <- ServerAuthorization.handleCreatInitAdmin (Server.handleAuthorization hServer) "tempAdmin" "temp" False
     Logger.logDebug (Server.handleLogger hServer) $ "create temp admin: " .< nameAdmin
-    act (Warp.runSettings (setting shutdown) app, connectDB)
+    act (Warp.runSettings (setting port shutdown) app, connectDB)
     return ()
 
-setting :: IO a -> Settings
-setting act =
-  setInstallShutdownHandler shutdownHandler defaultSettings
+setting :: Port -> IO a -> Settings
+setting port act =
+  setInstallShutdownHandler shutdownHandler $ setPort port defaultSettings
   where
     shutdownHandler closeSocket =
       void $ installHandler sigTERM (Catch $ act >> closeSocket) Nothing
@@ -96,10 +97,8 @@ serverT ::
                                                           :<|> ( ( UserPublic ->
                                                                    UserCreate Servant.Handler
                                                                  )
-                                                                   :<|> ( ( UserList m4
-                                                                          )
-                                                                            :<|> ( PhotoGet Servant.Handler
-                                                                                 )
+                                                                   :<|> ( UserList m4
+                                                                            :<|> PhotoGet Servant.Handler
                                                                         )
                                                                )
                                                       )
@@ -198,10 +197,10 @@ createNewsEdditS ::
   [Photo] ->
   [Base64] ->
   Servant.Handler News
-createNewsEdditS hServer userPub (Just uuID) content nameNews category flagPub lPhoto lBase64 = do
+createNewsEdditS hServer userPub (Just uuID) content nameNews' category flagPub lPhoto lBase64 = do
   mNews <-
     handleErrorAuthorization hServer $
-      Server.handleServerEditNews hServer userPub uuID content nameNews category flagPub (V.fromList lPhoto) (V.fromList lBase64)
+      Server.handleServerEditNews hServer userPub uuID content nameNews' category flagPub (V.fromList lPhoto) (V.fromList lBase64)
   case mNews of
     (Just news) -> return news
     _ -> do
@@ -263,7 +262,7 @@ userListS ::
   Maybe OffSet ->
   Maybe Limit ->
   m [UserPublic]
-userListS hServer mOffSet mLimit = liftIO $ Server.handleUserList hServer (fromMaybe 0 mOffSet) (fromMaybe 0 mLimit)
+userListS hServer mOffSet' mLimit' = liftIO $ Server.handleUserList hServer (fromMaybe 0 mOffSet') (fromMaybe 0 mLimit')
 
 photoGetS :: Server.Handle IO -> Maybe Photo -> Servant.Handler Base64
 photoGetS hServer (Just photo) = do
@@ -326,7 +325,7 @@ authcheck hServer = BasicAuthCheck $ \userPub -> do
     ( g
         <$> ServerAuthorization.handleCheckAccountStrong
           (Server.handleAuthorization hServer)
-          (basicAuthDataToLogined hServer)
+          (basicAuthDataToLogined userPub)
     )
     f
   where

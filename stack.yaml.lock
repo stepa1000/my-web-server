@@ -11,10 +11,31 @@ packages:
       size: 1034
   original:
     hackage: config-value-0.8.3@sha256:94f504c5c7ad950f7154950e2850ee7db80bd0c0271e945d452332192cb1a4b8,1905
+- completed:
+    commit: ea90acf5ae544d5cbf5dc2bd501aef00074ba5f0
+    git: https://github.com/mwotton/string-similarity
+    name: string-similarity
+    pantry-tree:
+      sha256: f1173bae171cbd436f215447d2c70f8a6a364da261dae76da8f45e23c6d46214
+      size: 804
+    version: 0.1.0.0
+  original:
+    commit: ea90acf5ae544d5cbf5dc2bd501aef00074ba5f0
+    git: https://github.com/mwotton/string-similarity
+- completed:
+    commit: adf9dd03d299a5b5ee1907fe2a63c9459a6f9a73
+    git: https://github.com/bos/suffixtree
+    name: suffixtree
+    pantry-tree:
+      sha256: 8c6a8ab7686ca744dc93564eb86fd8cbe63787620dc3b6481034db785afe90a6
+      size: 600
+    version: 0.2.2.1
+  original:
+    commit: adf9dd03d299a5b5ee1907fe2a63c9459a6f9a73
+    git: https://github.com/bos/suffixtree
 snapshots:
 - completed:
-    sha256: 3770dfd79f5aed67acdcc65c4e7730adddffe6dba79ea723cfb0918356fc0f94
-    size: 648660
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/4.yaml
-  original:
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/4.yaml
+    sha256: e019cd29e3f7f9dbad500225829a3f7a50f73c674614f2f452e21bb8bf5d99ea
+    size: 650253
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/24.yaml
+  original: lts-20.24

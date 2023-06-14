@@ -9,9 +9,7 @@
 module Data.Imp.Server.Authorization
   ( makeHandle,
     Config (..),
-    UserT (..),
-    UserTId,
-    UserId,
+    getHash,
   )
 where
 

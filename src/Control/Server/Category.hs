@@ -10,6 +10,6 @@ data Handle m = Handle
   { hGetCategory :: m NewsCategory,
     --                     name        new root           new name
     hChangeCategory :: Category -> Maybe Category -> Maybe Category -> m (),
-    -- |                  root         name
+    --                    root         name
     hCreateCategory :: Category -> Category -> m ()
   }

@@ -1,20 +1,18 @@
 module Main (main) where
 
+import Control.Monad
 import Data.Config
 import Data.Imp.Migration
 import Data.Imp.Server
 
 main :: IO ()
 main = do
-  r <- migrationMain
-  putStrLn $ show r
+  _ <- migrationDBServerMain
   conf <- getServerSettings
-  server actExit conf
+  server actExit (confPortServer conf) conf
 
 actExit :: IO ()
 actExit = do
   putStrLn "print exit for exit"
   s <- getLine
-  if s == "exit"
-    then return ()
-    else actExit
+  unless (s == "exit") actExit

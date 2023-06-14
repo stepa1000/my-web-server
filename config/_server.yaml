@@ -6,7 +6,7 @@ confConnectionInfo:
   connectPassword: ''
   connectPort: 5432
   connectUser: stepan
-confFailPathToCategoryNews: ./data/categoryNews.json
+confPortServer: 5433
 confLogger:
   preconfFilePath: ./logging/log
   preconfMinLevel: Error

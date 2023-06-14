@@ -67,7 +67,7 @@ withHandle config f = do
   return a
 
 logWith :: Config -> Logger.Level -> T.Text -> IO ()
-logWith config logLvl text | logLvl >= confMinLevel conf = do
+logWith config logLvl text | logLvl >= confMinLevel config = do
   T.hPutStrLn (confFileHandle config) $ T.pack (show logLvl ++ ": ") `T.append` text
   SIO.hFlush (confFileHandle config)
 logWith _ _ _ = return ()

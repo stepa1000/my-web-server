@@ -1,138 +1,92 @@
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module AuthorizationSpec (spec) where
 
+import qualified Control.Server.Authorization as SAuthorization
+import Data.Either
+import Data.Map as Map
+import Data.Maybe
+import Data.Time.Calendar.OrdinalDate
+import Data.Types
+import Data.User
+import Imp.Pure.Authorization
+import Test.Hspec
+  ( Spec,
+    describe,
+    it,
+    shouldBe,
+  )
+import Utils
 import Prelude as P
 
-import Database.Beam
-import Database.Beam.Postgres as Beam
-import Database.Beam.Postgres.Conduit as BPC
+name :: Name
+name = "name1"
 
-import Data.Time.Clock
-import Data.Maybe
+login :: Login
+login = "login1"
 
-import Test.Hspec 
-  ({-Expectation,-} Spec, around, describe, it, shouldBe {-, shouldNotBe, shouldSatisfy-})
---import Test.QuickCheck (NonNegative (..), property, (==>))
+password :: Password
+password = "password1"
 
---import Data.News
-import Data.User
---import Data.Types
+flagMakeNews :: Bool
+flagMakeNews = False
 
-import qualified Control.Server.Authorization as SAuthorization
-import qualified Data.Imp.Server.Authorization as ImpSAuthorization
+flagAdmin :: Bool
+flagAdmin = False
 
 spec :: Spec
-spec = 
-  around withDatabase $
-    describe "server authorization" $ do
-      it "hCreateUser" $ \ (h,c) -> do
-        let name = "name1"
-        let login = "login1"
-        let password = "password1"
-        let fmn = False
-        let fa = False
-        up <- SAuthorization.hCreateUser h name login password fmn fa
-        _ <- BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
-          (\a-> ImpSAuthorization._userLogin a ==. "login1")
-        (UTCTime day _) <- getCurrentTime
-        up `shouldBe` (UserPublic 
-          { nameUser = name
-          , loginUser = login
-          , dateCreationUser = day
-          , adminUser = fa
-          , makeNewsUser = fmn 
-          }
-          )
-      it "hUserList" $ \ (h,c) -> do
-        let name = "name1"
-        let login = "login1"
-        let password = "password1"
-        let fmn = False
-        let fa = False
-        _ <- SAuthorization.hCreateUser h name login password fmn fa
-        lup <- SAuthorization.hUserList h 0 3
-        _ <- BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
-          (\a-> ImpSAuthorization._userLogin a ==. "login1")
-        (UTCTime day _) <- getCurrentTime
-        lup `shouldBe` [UserPublic 
-          { nameUser = name
-          , loginUser = login
-          , dateCreationUser = day
-          , adminUser = fa
-          , makeNewsUser = fmn
-          }]
-      it "hCheckAccount" $ \ (h,c) -> do
-        let name = "name1"
-        let login = "login1"
-        let password = "password1"
-        let fmn = False
-        let fa = False
-        _ <- SAuthorization.hCreateUser h name login password fmn fa
-        up <- fromJust <$> SAuthorization.hCheckAccount h login password
-        _ <- BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
-          (\a-> ImpSAuthorization._userLogin a ==. "login1")
-        (UTCTime day _) <- getCurrentTime
-        up `shouldBe` (UserPublic 
-          { nameUser = name
-          , loginUser = login
-          , dateCreationUser = day
-          , adminUser = fa
-          , makeNewsUser = fmn 
-          }
-          )
-      it "hGetAccount" $ \ (h,c) -> do
-        let name = "name1"
-        let login = "login1"
-        let password = "password1"
-        let fmn = False
-        let fa = False
-        _ <- SAuthorization.hCreateUser h name login password fmn fa
-        up <- fromJust <$> SAuthorization.hGetAccount h login
-        _ <- BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
-          (\a-> ImpSAuthorization._userLogin a ==. "login1")
-        (UTCTime day _) <- getCurrentTime
-        up `shouldBe` (UserPublic 
-          { nameUser = name
-          , loginUser = login
-          , dateCreationUser = day
-          , adminUser = fa
-          , makeNewsUser = fmn 
-          }
-          )
-        
+spec =
+  describe
+    "server authorization"
+    $ do
+      it "hCreateUser" $ do
+        let userCreate = fromRight undefined $ stateExeT stateAuth $ SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
+        userCreate
+          `shouldBe` ( UserPublic
+                         { nameUser = name,
+                           loginUser = login,
+                           dateCreationUser = day,
+                           adminUser = flagAdmin,
+                           makeNewsUser = flagMakeNews
+                         }
+                     )
+      it "hUserList" $ do
+        lUser
+          `shouldBe` [ UserPublic
+                         { nameUser = name,
+                           loginUser = login,
+                           dateCreationUser = day,
+                           adminUser = flagAdmin,
+                           makeNewsUser = flagMakeNews
+                         }
+                     ]
+      it "hCheckAccount" $ do
+        checkUserCheck
+          `shouldBe` Nothing
+      it "hGetAccount" $ do
+        checkUserGet
+          `shouldBe` ( Just $
+                         UserPublic
+                           { nameUser = name,
+                             loginUser = login,
+                             dateCreationUser = day,
+                             adminUser = flagAdmin,
+                             makeNewsUser = flagMakeNews
+                           }
+                     )
+  where
+    (Right lUser) = $ stateExeT stateAuth $ do
+      _ <- SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
+      SAuthorization.hUserList pureAuthorization 0 3
+    checkUserCheck = fromRight undefined $ stateExeT stateAuth $ do
+      SAuthorization.hCheckAccount pureAuthorization login password
+    checkUserGet = fromRight undefined $ stateExeT stateAuth $ do
+      _ <- SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
+      SAuthorization.hGetAccount pureAuthorization login
 
-{-
-createUserTest :: Int -> IO ()
-createUserTest i = do
-  let name = "name" ++ (show i)
-  let login = "login" ++ (show i)
-  let password = "password" ++ (show i)
-  let fmn = False
-  let fa = False
-  SAuthorization.hCreateUser h name login password fmn fa
--}
+day :: Day
+day = fromMondayStartWeek 2023 17 1
 
-withDatabase :: ((SAuthorization.Handle IO, Connection) -> IO ()) -> IO ()
-withDatabase f = do 
-  c <- Beam.connect testDBConnect
-  let h = ImpSAuthorization.makeHandle configAuthorization c
-  f (h,c)
-  _ <- BPC.runDelete c $ delete (ImpSAuthorization._accounts  ImpSAuthorization.accountDB) 
-          (\_-> val_ True )
-  Beam.close c
-
-configAuthorization :: ImpSAuthorization.Config
-configAuthorization = ImpSAuthorization.Config
-  { ImpSAuthorization.confLimit = 3
-  }
---  { ImpSAuthorization.confConnectInfo = testDBConnect
---  , ImpSAuthorization.confLimit = 3
---  }
-
-testDBConnect :: ConnectInfo
-testDBConnect = defaultConnectInfo {connectUser="stepan", connectDatabase = "testDB"}
+stateAuth :: DataAuthorization
+stateAuth = DataAuthorization Map.empty

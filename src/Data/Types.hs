@@ -62,7 +62,7 @@ type NameNews = Text
 
 type Password = Text
 
-type Photo = Text
+type Photo = UUID
 
 type ForString = Text
 
