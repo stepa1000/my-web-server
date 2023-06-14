@@ -9,7 +9,7 @@ main :: IO ()
 main = do
   _ <- migrationDBServerMain
   conf <- getServerSettings
-  server actExit 5432 conf
+  server actExit (connectPort conf) conf
 
 actExit :: IO ()
 actExit = do
