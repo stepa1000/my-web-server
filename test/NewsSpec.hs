@@ -32,7 +32,7 @@ spec = do
       lNewsPut `shouldBe` [testNews3]
     it "hGenUUID" $ do
       let uuid = stateExe statePhoto $ stateExeT stateNews $ hGenUUID (pureNews dayTest)
-      print uuid
+      uuid `shouldBe` uuid
     it "hGetNews" $ do
       let mNews = stateExe statePhoto $ stateExeT stateNews $ hGetNews (pureNews dayTest) (uuidNews testNews)
       mNews `shouldBe` Just testNews

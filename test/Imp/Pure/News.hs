@@ -20,7 +20,7 @@ import Data.Types
 import Data.UUID
 import Imp.Pure.Photo
 import System.Random
-import Prelude (Char, id, snd, ($), (.), (<$>))
+import Prelude (Char, snd, ($), (.))
 import qualified Prelude as P
 
 type StateNews = StateT (Map UUID News) StatePhoto
@@ -58,7 +58,7 @@ pureSearchNews _ search = do
           maybe True (uuidNews news ==) (mNewsUUID search),
           maybe True (nameNews news ==) (mNewsName search),
           maybe True (textNews news ==) (mContent search),
-          maybe True (not . P.null . longestSubstring @Char (unpack $ textNews news)) (mForString search),
+          maybe True (not . P.null . longestSubstring @Char (unpack $ textNews news) . unpack) (mForString search),
           maybe True (publicNews news ==) (mFlagPublished search)
         ]
 

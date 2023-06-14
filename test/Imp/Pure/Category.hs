@@ -10,7 +10,7 @@ import Data.List (head, unzip)
 import Data.Maybe as Maybe
 import Data.Tree as Tree
 import Data.Types
-import Prelude (id, ($), (.), (==))
+import Prelude (($), (.), (==))
 import qualified Prelude as P
 
 pureCategory :: Handle (State NewsCategory)

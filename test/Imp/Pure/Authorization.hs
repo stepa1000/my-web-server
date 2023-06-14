@@ -10,7 +10,6 @@ where
 import Control.Monad.Except
 import Control.Monad.State.Lazy
 import Control.Server.Authorization
-import Data.Bool
 import Data.Either
 import Data.Imp.Server.Authorization (getHash)
 import Data.Map

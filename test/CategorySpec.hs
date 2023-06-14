@@ -2,7 +2,6 @@
 
 module CategorySpec (spec) where
 
-import Control.Monad.State.Lazy
 import Control.Server.Category
 import Data.Maybe
 import Data.Tree
@@ -23,12 +22,12 @@ spec =
     it "hGetCategory" $ do
       let generalCategory = stateExe stateCategory $ hGetCategory pureCategory
       generalCategory `shouldBe` Node "General" [Node "test" []]
-    it "hCreateCategory" $ do
-      testCategory `shouldBe` Node "General" [Node "test2" [], Node "test" []]
-    it "hChangeCategory" $ do
+    it "hCreateCategoryCreate" $ do
+      testCategoryCreate `shouldBe` Node "General" [Node "test2" [], Node "test" []]
+    it "hChangeCategoryChange" $ do
       testCategory `shouldBe` Node "General" [Node "test1" []]
   where
-    testCategory = stateExe stateCategory $ do
+    testCategoryCreate = stateExe stateCategory $ do
       hCreateCategory pureCategory "General" "test2"
       hGetCategory pureCategory
     testCategory = stateExe stateCategory $ do

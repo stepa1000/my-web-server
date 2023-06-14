@@ -3,12 +3,12 @@
 
 module AuthorizationSpec (spec) where
 
-import Control.Monad.State.Lazy
 import qualified Control.Server.Authorization as SAuthorization
 import Data.Either
 import Data.Map as Map
 import Data.Maybe
 import Data.Time.Calendar.OrdinalDate
+import Data.Types
 import Data.User
 import Imp.Pure.Authorization
 import Test.Hspec
@@ -20,14 +20,19 @@ import Test.Hspec
 import Utils
 import Prelude as P
 
+name :: Name
 name = "name1"
 
+login :: Login
 login = "login1"
 
+password :: Password
 password = "password1"
 
+flagMakeNews :: Bool
 flagMakeNews = False
 
+flagAdmin :: Bool
 flagAdmin = False
 
 spec :: Spec
@@ -57,18 +62,10 @@ spec =
                          }
                      ]
       it "hCheckAccount" $ do
-        checkUser
-          `shouldBe` ( Just $
-                         UserPublic
-                           { nameUser = name,
-                             loginUser = login,
-                             dateCreationUser = day,
-                             adminUser = flagAdmin,
-                             makeNewsUser = flagMakeNews
-                           }
-                     )
+        checkUserCheck
+          `shouldBe` Nothing
       it "hGetAccount" $ do
-        checkUser
+        checkUserGet
           `shouldBe` ( Just $
                          UserPublic
                            { nameUser = name,
@@ -82,10 +79,9 @@ spec =
     lUser = fromRight undefined $ stateExeT stateAuth $ do
       _ <- SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
       SAuthorization.hUserList pureAuthorization 0 3
-    checkUser = fromRight undefined $ stateExeT stateAuth $ do
-      _ <- SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
+    checkUserCheck = fromRight undefined $ stateExeT stateAuth $ do
       SAuthorization.hCheckAccount pureAuthorization login password
-    checkUser = fromRight undefined $ stateExeT stateAuth $ do
+    checkUserGet = fromRight undefined $ stateExeT stateAuth $ do
       _ <- SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
       SAuthorization.hGetAccount pureAuthorization login
 
