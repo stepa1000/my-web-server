@@ -42,6 +42,7 @@ data Config = Config
   { confNews :: News.Config,
     confAuthorization :: Authorization.Config,
     confConnectionInfo :: ConnectInfo,
+    confPortServer :: Port,
     confLogger :: ImpLogger.PreConfig
   }
   deriving (Generic)
