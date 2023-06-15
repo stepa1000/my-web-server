@@ -9,10 +9,13 @@ module Control.Server.Authorization
     handleCheckAccount,
     handleCatchErrorAuthorization,
     handleCreatInitAdmin,
+    handleCreateUserCheck,
   )
 where
 
+import Control.Monad
 import Control.Monad.Catch
+import Data.Maybe
 import Data.Typeable
 import Data.Types
 import Data.User
@@ -23,6 +26,7 @@ data Handle m = Handle
     hUserList :: OffSet -> Limit -> m [UserPublic],
     hCheckAccount :: Login -> Password -> m (Maybe UserPublic),
     hGetAccount :: Login -> m (Maybe UserPublic),
+    hAccountCheckWarn :: Login -> m (),
     hAuthorizationFail :: m (),
     hAdminCheckFail :: m (),
     hCreatorNewsCheckFail :: m (),
@@ -35,12 +39,19 @@ data ErrorAuthorization
   | ErrorCreatorNewsCheck
   deriving (Typeable, Show, Eq, Exception)
 
+handleAccountCheck :: Functor m => Handle m -> Login -> m Bool
+handleAccountCheck auth login = isJust <$> hGetAccount auth login
+
+handleCreateUserCheck :: Monad m => Handle m -> Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> m (Maybe UserPublic)
+handleCreateUserCheck auth name login password flagMakeNews flagAdmin = do
+  checkAccount <- handleAccountCheck auth login
+  if checkAccount
+    then Just <$> hCreateUser auth name login password flagMakeNews flagAdmin
+    else (const Nothing) <$> hAccountCheckWarn auth login
+
 handleCreatInitAdmin :: Monad m => Handle m -> Login -> Password -> FlagMakeNews -> m (Maybe UserPublic)
 handleCreatInitAdmin auth login password flagMNews = do
-  lUser <- hUserList auth 0 0
-  case lUser of
-    [] -> Just <$> hCreateUser auth login login password flagMNews True
-    _ -> return Nothing
+  handleCreateUserCheck auth login login password flagMNews True
 
 handleCatchErrorAuthorization :: Monad m => Handle m -> m a -> m (Either ErrorAuthorization a)
 handleCatchErrorAuthorization auth mact = hCatchErrorAuthorization auth (fmap Right mact) (return . Left)

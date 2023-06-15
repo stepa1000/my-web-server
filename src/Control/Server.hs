@@ -141,8 +141,8 @@ handleUserCreate ::
 handleUserCreate hServer userpublic name login password flagMakeNews flagAdmin = do
   case userpublic of
     (UserPublic _ _ _ True _) -> do
-      vUser <- ServerAuthorization.hCreateUser (handleAuthorization hServer) name login password flagMakeNews flagAdmin
-      return $ Just vUser
+      vUser <- ServerAuthorization.handleCreateUserCheck (handleAuthorization hServer) name login password flagMakeNews flagAdmin
+      return $ vUser
     _ -> do
       ServerAuthorization.hAdminCheckFail (handleAuthorization hServer)
       return Nothing
