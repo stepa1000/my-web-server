@@ -73,7 +73,7 @@ handleCategoryCreate ::
 handleCategoryCreate hServer userpublic categoryRoot category = do
   case userpublic of
     (UserPublic _ _ _ True _) -> do
-      ServerCategory.hCreateCategory (handleCategory hServer) categoryRoot category
+      ServerCategory.handleCreateCategory (handleCategory hServer) categoryRoot category
       ServerCategory.hGetCategory (handleCategory hServer)
     _ -> do
       ServerAuthorization.hAdminCheckFail (handleAuthorization hServer)

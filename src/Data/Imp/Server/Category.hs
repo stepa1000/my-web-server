@@ -36,7 +36,8 @@ withHandle logger connectDB act = do
     Category.Handle
       { Category.hGetCategory = fromMaybe (Node "" []) <$> getNewsCategory logger connectDB "General",
         Category.hChangeCategory = changeCategory logger connectDB,
-        Category.hCreateCategory = createCategory logger connectDB
+        Category.hCreateCategory = createCategory logger connectDB,
+        Category.hCreateCategoryWarn = createCategoryWarn logger
       }
 
 -- | change the ancestor of a category or name.
@@ -189,3 +190,6 @@ getCategory logger connectDB category = do
   Logger.logInfo logger "Get category parrent"
   l <- listStreamingRunSelect connectDB $ lookup_ (dbCategory webServerDB) (primaryKey $ categoryName category)
   return $ listToMaybe l
+
+createCategoryWarn :: Logger.Handle IO -> Category -> IO ()
+createCategoryWarn logger category = Logger.logInfo logger $ "Category is exist: " Logger..< category
