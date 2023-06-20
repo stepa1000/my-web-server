@@ -192,6 +192,34 @@ addUUIDsfromNewsCategory =
             catTabl
     )
 
+addUniqueForCategoryName ::
+  MigrationSteps
+    Postgres
+    (CheckedDatabaseSettings Postgres WebServerDB)
+    (CheckedDatabaseSettings Postgres WebServerDB)
+addUniqueForCategoryName =
+  migrationStep
+    "add unique for category name"
+    ( \(WebServerDB userTabl newsTabl photoTabl categoryTabl) -> do
+        categoryTabl' <- alterTable categoryTabl $ \a -> do
+          dropColumn $ _categoryCategoryName a
+          categoryNameColumn <-
+            addColumn $
+              field
+                "category_name"
+                text
+                notNull
+                unique
+          return $
+            CategoryT
+              { _categoryUuidCategory = _categoryUuidCategory a,
+                _categoryCategoryName = categoryNameColumn,
+                _categoryParent = _categoryParent a,
+                _categoryChild = _categoryChild a
+              }
+        return $ WebServerDB userTabl newsTabl photoTabl categoryTabl'
+    )
+
 allowDestructive :: (MonadFail m) => BringUpToDateHooks m
 allowDestructive =
   defaultUpToDateHooks
@@ -206,7 +234,7 @@ migrateDB conn =
     bringUpToDateWithHooks
       allowDestructive
       PG.migrationBackend
-      (addUUIDsfromNewsCategory <<< initialSetupStep)
+      (addUniqueForCategoryName <<< addUUIDsfromNewsCategory <<< initialSetupStep)
 
 migrateDBServer :: Server.Config -> IO (Maybe (CheckedDatabaseSettings Postgres WebServerDB))
 migrateDBServer s = do

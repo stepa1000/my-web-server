@@ -144,17 +144,8 @@ initNewsCategory logger connectDB category = do
 createCategory :: Logger.Handle IO -> Connection -> Category -> Category -> IO ()
 createCategory logger connectDB categoryRoot vCategoryName = do
   Logger.logInfo logger "Create category"
-  _ <-
-    BPC.runUpdate connectDB $
-      Beam.update
-        (dbCategory webServerDB)
-        ( \cat ->
-            _categoryChild cat
-              <-. concatV_ (current_ (_categoryChild cat)) (val_ $ V.singleton vCategoryName)
-        )
-        (\cat -> _categoryCategoryName cat ==. val_ categoryRoot)
   ruuid <- randomIO
-  _ <-
+  errorSQL <-
     BPC.runInsert connectDB $
       insert
         (dbCategory webServerDB)
@@ -167,7 +158,19 @@ createCategory logger connectDB categoryRoot vCategoryName = do
                 }
             ]
         )
-  return ()
+  if errorSQL == 23505 {-unique_violation-}
+    then Logger.logWarning logger $ "Unique violation for: " Logger..< vCategoryName
+    else do
+      _ <-
+        BPC.runUpdate connectDB $
+          Beam.update
+            (dbCategory webServerDB)
+            ( \cat ->
+                _categoryChild cat
+                  <-. concatV_ (current_ (_categoryChild cat)) (val_ $ V.singleton vCategoryName)
+            )
+            (\cat -> _categoryCategoryName cat ==. val_ categoryRoot)
+      return ()
 
 -- | Taking the full tree of news categories.
 --
