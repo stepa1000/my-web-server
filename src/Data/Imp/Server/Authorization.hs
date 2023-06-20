@@ -15,6 +15,7 @@ where
 
 import Conduit
 import qualified Control.Logger as Logger
+import Control.Monad
 import Control.Monad.Catch
 import qualified Control.Server.Authorization as ServerAuthorization
 import Crypto.Hash
@@ -132,40 +133,29 @@ userTToUserPublic userT =
 hCreateUser :: Logger.Handle IO -> Connection -> Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> IO UserPublic
 hCreateUser logger connectDB name login password flagMNews flagAdmin = do
   Logger.logInfo logger "Create user"
-  lUserT <- listStreamingRunSelect connectDB $ lookup_ (dbUser webServerDB) (primaryKey $ loginUserT login)
-  case lUserT of
-    [] -> do
-      (UTCTime day _) <- getCurrentTime
-      _ <-
-        BPC.runInsert connectDB $
-          insert (dbUser webServerDB) $
-            insertValues
-              [ UserT
-                  { _userName = name,
-                    _userLogin = login,
-                    _userPasswordHash = getHash password,
-                    _userDateCreation = day,
-                    _userAdmin = flagAdmin,
-                    _userMakeNews = flagMNews
-                  }
-              ]
-      return $
-        UserPublic
-          { nameUser = name,
-            loginUser = login,
-            dateCreationUser = day,
-            adminUser = flagAdmin,
-            makeNewsUser = flagMNews
-          }
-    (x : _) -> do
-      return $
-        UserPublic
-          { nameUser = _userName x,
-            loginUser = _userLogin x,
-            dateCreationUser = _userDateCreation x,
-            adminUser = _userAdmin x,
-            makeNewsUser = _userMakeNews x
-          }
+  (UTCTime day _) <- getCurrentTime
+  errorSQL <-
+    BPC.runInsert connectDB $
+      insert (dbUser webServerDB) $
+        insertValues
+          [ UserT
+              { _userName = name,
+                _userLogin = login,
+                _userPasswordHash = getHash password,
+                _userDateCreation = day,
+                _userAdmin = flagAdmin,
+                _userMakeNews = flagMNews
+              }
+          ]
+  when (errorSQL == 23505) $ Logger.logWarning logger $ "Unique violation for: " Logger..< login
+  return $
+    UserPublic
+      { nameUser = name,
+        loginUser = login,
+        dateCreationUser = day,
+        adminUser = flagAdmin,
+        makeNewsUser = flagMNews
+      }
 
 getHash :: Text -> ByteString
 getHash = convert . hashlazy @SHA256 . Binary.encode
