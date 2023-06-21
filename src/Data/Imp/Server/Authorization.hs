@@ -49,7 +49,6 @@ makeHandle logger config connectDB =
       ServerAuthorization.hUserList = hUserList logger connectDB config,
       ServerAuthorization.hCheckAccount = hCheckAccount logger connectDB,
       ServerAuthorization.hGetAccount = hGetAccount logger connectDB,
-      ServerAuthorization.hAccountCheckWarn = hAccountCheckWarning logger,
       ServerAuthorization.hAuthorizationFail = hAuthorizationFail logger,
       ServerAuthorization.hAdminCheckFail = hAdminCheckFail logger,
       ServerAuthorization.hCreatorNewsCheckFail = hCreatorNewsCheckFail logger,
@@ -70,9 +69,6 @@ hAdminCheckFail :: Logger.Handle IO -> IO ()
 hAdminCheckFail logger = do
   Logger.logError logger "Admin check"
   throwM ServerAuthorization.ErrorAdminCheck
-
-hAccountCheckWarning :: Logger.Handle IO -> Login -> IO ()
-hAccountCheckWarning logger login = Logger.logWarning logger $ "Check Account " Logger..< login
 
 hAuthorizationFail :: Logger.Handle IO -> IO ()
 hAuthorizationFail logger = do
