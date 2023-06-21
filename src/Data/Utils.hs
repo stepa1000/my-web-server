@@ -6,6 +6,7 @@ module Data.Utils
   ( listStreamingRunSelect,
     concatV_,
     arrayRemove,
+    runInsertWithError,
   )
 where
 

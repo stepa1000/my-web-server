@@ -33,7 +33,6 @@ import Data.Utils
 import Data.Yaml
 import Database.Beam
 import Database.Beam.Postgres as Beam
-import Database.Beam.Postgres.Conduit as BPC
 import Prelude as P
 
 newtype Config = Config
@@ -131,19 +130,21 @@ hCreateUser logger connectDB name login password flagMNews flagAdmin = do
   Logger.logInfo logger "Create user"
   (UTCTime day _) <- getCurrentTime
   errorSQL <-
-    BPC.runInsert connectDB $
-      insert (dbUser webServerDB) $
-        insertValues
-          [ UserT
-              { _userName = name,
-                _userLogin = login,
-                _userPasswordHash = getHash password,
-                _userDateCreation = day,
-                _userAdmin = flagAdmin,
-                _userMakeNews = flagMNews
-              }
-          ]
-  when (errorSQL == 23505) $ Logger.logWarning logger $ "Unique violation for: " Logger..< login
+    runResourceT $
+      runInsertWithError connectDB $
+        insert (dbUser webServerDB) $
+          insertValues
+            [ UserT
+                { _userName = name,
+                  _userLogin = login,
+                  _userPasswordHash = getHash password,
+                  _userDateCreation = day,
+                  _userAdmin = flagAdmin,
+                  _userMakeNews = flagMNews
+                }
+            ]
+  when (errorSQL == "23505") $ Logger.logWarning logger $ "Unique violation for: " Logger..< login
+  Logger.logDebug logger $ "error message: " Logger..< errorSQL
   return $
     UserPublic
       { nameUser = name,
