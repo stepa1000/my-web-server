@@ -70,8 +70,12 @@ library
     , hspec
     , http-client
     , http-client-tls
+    , lifted-base
     , memory
+    , monad-control
     , mtl
+    , postgresql-libpq
+    , postgresql-simple
     , random
     , servant
     , servant-client
@@ -113,9 +117,13 @@ executable my-web-server-exe
     , hspec
     , http-client
     , http-client-tls
+    , lifted-base
     , memory
+    , monad-control
     , mtl
     , my-web-server
+    , postgresql-libpq
+    , postgresql-simple
     , random
     , servant
     , servant-client
@@ -166,9 +174,13 @@ test-suite my-web-server-test
     , hspec
     , http-client
     , http-client-tls
+    , lifted-base
     , memory
+    , monad-control
     , mtl
     , my-web-server
+    , postgresql-libpq
+    , postgresql-simple
     , random
     , servant
     , servant-client

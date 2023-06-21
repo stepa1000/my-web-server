@@ -54,6 +54,10 @@ dependencies:
 - http-client-tls
 - http-client
 - mtl
+- lifted-base
+- monad-control
+- postgresql-libpq
+- postgresql-simple
 
 ghc-options:
 # -XOverloadedStrings
