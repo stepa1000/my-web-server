@@ -208,7 +208,6 @@ addUniqueForCategoryName =
               field
                 "category_name"
                 text
-                notNull
                 unique
           return $
             CategoryT
