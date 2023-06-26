@@ -7,12 +7,14 @@ module Data.Imp.Server.Category
   )
 where
 
-import Conduit
+import Control.Concurrent.MVar
+import Control.Exception
 import qualified Control.Logger as Logger
 import Control.Monad
 import qualified Control.Server.Category as Category
 import Data.Imp.Database
 import Data.Maybe as Maybe
+import Data.Text
 import Data.Tree as Tree
 import Data.Types
 import Data.Utils
@@ -146,21 +148,26 @@ createCategory :: Logger.Handle IO -> Connection -> Category -> Category -> IO (
 createCategory logger connectDB categoryRoot vCategoryName = do
   Logger.logInfo logger "Create category"
   ruuid <- randomIO
-  errorSQL <-
-    runResourceT $
-      BPC.runInsertWithError connectDB $
-        insert
-          (dbCategory webServerDB)
-          ( insertValues
-              [ CategoryT
-                  { _categoryUuidCategory = ruuid,
-                    _categoryCategoryName = vCategoryName,
-                    _categoryParent = categoryRoot,
-                    _categoryChild = V.empty
-                  }
-              ]
-          )
-  if errorSQL == "" {-unique_violation-}
+  mvbool <- newMVar True
+  _ <-
+    catch
+      ( void $
+          BPC.runInsert connectDB $
+            insert
+              (dbCategory webServerDB)
+              ( insertValues
+                  [ CategoryT
+                      { _categoryUuidCategory = ruuid,
+                        _categoryCategoryName = vCategoryName,
+                        _categoryParent = categoryRoot,
+                        _categoryChild = V.empty
+                      }
+                  ]
+              )
+      )
+      (\sqlE -> putMVar mvbool False >> handler sqlE)
+  b <- takeMVar mvbool
+  if b
     then do
       _ <-
         BPC.runUpdate connectDB $
@@ -172,7 +179,13 @@ createCategory logger connectDB categoryRoot vCategoryName = do
             )
             (\cat -> _categoryCategoryName cat ==. val_ categoryRoot)
       return ()
-    else Logger.logDebug logger $ "Unique violation for: " Logger..< vCategoryName
+    else return ()
+  where
+    handler :: SqlError -> IO ()
+    handler exc = do
+      Logger.logWarning logger $ "Unique violation for: " Logger..< vCategoryName
+      Logger.logError logger $ "Exception: " <> (Data.Text.pack . show $ sqlState exc)
+      return ()
 
 -- | Taking the full tree of news categories.
 --
