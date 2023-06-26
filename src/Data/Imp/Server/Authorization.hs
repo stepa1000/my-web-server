@@ -33,6 +33,8 @@ import Data.Utils
 import Data.Yaml
 import Database.Beam
 import Database.Beam.Postgres as Beam
+import Database.Beam.Postgres.Conduit as BPC
+import Servant.Server
 import Prelude as P
 
 newtype Config = Config
@@ -145,7 +147,7 @@ hCreateUser logger connectDB name login password flagMNews flagAdmin = do
                     }
                 ]
       )
-      handler
+      (const (throwIO $ err401 {errBody = "Login exist."}) . handler)
   return $
     UserPublic
       { nameUser = name,
