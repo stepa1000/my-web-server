@@ -23,6 +23,7 @@ import Database.Beam.Postgres
 import Database.Beam.Postgres.Conduit as BPC
 import Database.Beam.Query as Beam
 import Database.Beam.Schema.Tables
+import Servant.Server
 import System.Random
 import Prelude as P
 
@@ -165,7 +166,7 @@ createCategory logger connectDB categoryRoot vCategoryName = do
                   ]
               )
       )
-      (\sqlE -> putMVar mvbool False >> handler sqlE)
+      (\sqlE -> putMVar mvbool False >> handler sqlE >> throwIO (err401 {errBody = "Login exist."}))
   b <- takeMVar mvbool
   if b
     then do
