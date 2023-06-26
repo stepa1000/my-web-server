@@ -14,9 +14,9 @@ module Data.Imp.Server.Authorization
 where
 
 import Conduit
+import Control.Exception
 import qualified Control.Logger as Logger
 import Control.Monad
-import Control.Monad.Catch
 import qualified Control.Server.Authorization as ServerAuthorization
 import Crypto.Hash
 import Data.Binary as Binary
@@ -130,20 +130,23 @@ hCreateUser :: Logger.Handle IO -> Connection -> Name -> Login -> Password -> Fl
 hCreateUser logger connectDB name login password flagMNews flagAdmin = do
   Logger.logInfo logger "Create user"
   (UTCTime day _) <- getCurrentTime
-  errorSQL <-
-    BPC.runInsert connectDB $
-      insert (dbUser webServerDB) $
-        insertValues
-          [ UserT
-              { _userName = name,
-                _userLogin = login,
-                _userPasswordHash = getHash password,
-                _userDateCreation = day,
-                _userAdmin = flagAdmin,
-                _userMakeNews = flagMNews
-              }
-          ]
-  when (errorSQL == 23505) $ Logger.logWarning logger $ "Unique violation for: " Logger..< login
+  _ <-
+    catch
+      ( void $
+          BPC.runInsert connectDB $
+            insert (dbUser webServerDB) $
+              insertValues
+                [ UserT
+                    { _userName = name,
+                      _userLogin = login,
+                      _userPasswordHash = getHash password,
+                      _userDateCreation = day,
+                      _userAdmin = flagAdmin,
+                      _userMakeNews = flagMNews
+                    }
+                ]
+      )
+      handler
   return $
     UserPublic
       { nameUser = name,
@@ -152,6 +155,12 @@ hCreateUser logger connectDB name login password flagMNews flagAdmin = do
         adminUser = flagAdmin,
         makeNewsUser = flagMNews
       }
+  where
+    handler :: SqlError -> IO ()
+    handler exc = do
+      Logger.logWarning logger $ "Unique violation for: " Logger..< login
+      Logger.logError logger $ "Exception: " <> (Data.Text.pack . show $ sqlState exc)
+      return ()
 
 getHash :: Text -> ByteString
 getHash = convert . hashlazy @SHA256 . Binary.encode
