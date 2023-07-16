@@ -2,4 +2,4 @@
 
 set -eu
 
-curl -i -v -sS 'http://localhost:3000/user/list'
+curl -i -v -sS 'http://localhost:5435/user/list'
