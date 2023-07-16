@@ -45,12 +45,6 @@ extra-deps:
   commit: ea90acf5ae544d5cbf5dc2bd501aef00074ba5f0
 - git: https://github.com/bos/suffixtree
   commit: adf9dd03d299a5b5ee1907fe2a63c9459a6f9a73
-- git: https://github.com/stepa1000/beam
-  commit: 59bed8032f7b006f115389fae4124913be61dd73
-  subdirs: 
-  - beam-core
-  - beam-migrate
-  - beam-postgres
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
