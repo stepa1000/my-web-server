@@ -37,9 +37,13 @@ data ErrorAuthorization
   | ErrorCreatorNewsCheck
   deriving (Typeable, Show, Eq, Exception)
 
-handleCreatInitAdmin :: Handle m -> Login -> Password -> FlagMakeNews -> m UserPublic
-handleCreatInitAdmin auth login password flagMNews = hCreateUser auth login login password flagMNews True
-
+handleCreatInitAdmin :: Monad m => Handle m -> Login -> Password -> FlagMakeNews -> m UserPublic
+handleCreatInitAdmin auth login password flagMNews = do
+  mUser <- hGetAccount auth login
+  case mUser of
+    Nothing -> hCreateUser auth login login password flagMNews True
+    (Just getUser) -> return getUser
+    
 handleCatchErrorAuthorization :: Monad m => Handle m -> m a -> m (Either ErrorAuthorization a)
 handleCatchErrorAuthorization auth mact = hCatchErrorAuthorization auth (fmap Right mact) (return . Left)
 
