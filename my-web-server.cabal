@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.35.2.
+-- This file has been generated from package.yaml by hpack version 0.36.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -70,12 +70,8 @@ library
     , hspec
     , http-client
     , http-client-tls
-    , lifted-base
     , memory
-    , monad-control
     , mtl
-    , postgresql-libpq
-    , postgresql-simple
     , random
     , servant
     , servant-client
@@ -117,13 +113,9 @@ executable my-web-server-exe
     , hspec
     , http-client
     , http-client-tls
-    , lifted-base
     , memory
-    , monad-control
     , mtl
     , my-web-server
-    , postgresql-libpq
-    , postgresql-simple
     , random
     , servant
     , servant-client
@@ -174,13 +166,9 @@ test-suite my-web-server-test
     , hspec
     , http-client
     , http-client-tls
-    , lifted-base
     , memory
-    , monad-control
     , mtl
     , my-web-server
-    , postgresql-libpq
-    , postgresql-simple
     , random
     , servant
     , servant-client

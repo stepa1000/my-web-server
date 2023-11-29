@@ -162,6 +162,9 @@ hCreateUser logger connectDB name login password flagMNews flagAdmin = do
       Logger.logWarning logger $ "Unique violation for: " Logger..< login
       Logger.logError logger $ "Exception: " <> (Data.Text.pack . show $ sqlState exc)
       return ()
+--    errorsLog =
+--      const (throwIO $ err401 {errBody = "Login exist."})
+--        . const (Logger.logWarning logger "Login exist.")
 
 getHash :: Text -> ByteString
 getHash = convert . hashlazy @SHA256 . Binary.encode
