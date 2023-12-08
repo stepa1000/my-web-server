@@ -4,6 +4,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeApplications#-}
 
 module Data.Imp.Server
   ( Config (..),
@@ -37,6 +38,9 @@ import Network.Wai.Handler.Warp as Warp
 import Servant.API
 import Servant.Server as Servant
 import System.Posix.Signals
+import Control.Concurrent.MVar
+import Control.Exception
+import Control.Monad.Except
 
 data Config = Config
   { confNews :: News.Config,
@@ -232,11 +236,14 @@ userCreateS ::
   Maybe FlagAdmin ->
   Servant.Handler UserPublic
 userCreateS hServer userPub (Just name) (Just login) (Just password) (Just flagMakeNews) (Just flagAdmin) = do
-  mUserPub <-
-    handleErrorAuthorization hServer $
-      Server.handleUserCreate hServer userPub name login password flagMakeNews flagAdmin
-  case mUserPub of
-    (Just userPub') -> return userPub'
+  mvCatch <- liftIO (newEmptyMVar @ServerError)
+  mUserPub <- (Servant.Handler . ExceptT . (\io-> catch io (\e-> (return Nothing) <$ putMVar mvCatch e)) .runExceptT . runHandler')
+    (handleErrorAuthorization hServer $
+      Server.handleUserCreate hServer userPub name login password flagMakeNews flagAdmin)
+  mSError <- liftIO $ tryTakeMVar mvCatch
+  case (mUserPub,mSError) of
+    (Just userPub', _) -> return userPub'
+    (_, Just serverErr) -> throwError serverErr
     _ -> do
       liftIO $ Logger.logError (Server.handleLogger hServer) "userCreate: creator not admin"
       throwError $
