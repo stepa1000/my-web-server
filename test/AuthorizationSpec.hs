@@ -76,7 +76,10 @@ spec =
                            }
                      )
   where
-    (Right lUser) = $ stateExeT stateAuth $ do
+    lUser = (\c->case c of 
+        (Left _) -> []
+        (Right l) -> l
+        ) $ stateExeT stateAuth $ do
       _ <- SAuthorization.hCreateUser pureAuthorization name login password flagMakeNews flagAdmin
       SAuthorization.hUserList pureAuthorization 0 3
     checkUserCheck = fromRight undefined $ stateExeT stateAuth $ do
