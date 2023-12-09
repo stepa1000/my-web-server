@@ -7,7 +7,6 @@ module Data.Imp.Server.Category
   )
 where
 
-import Control.Concurrent.MVar
 import Control.Exception
 import qualified Control.Logger as Logger
 import Control.Monad
@@ -149,9 +148,8 @@ createCategory :: Logger.Handle IO -> Connection -> Category -> Category -> IO (
 createCategory logger connectDB categoryRoot vCategoryName = do
   Logger.logInfo logger "Create category"
   ruuid <- randomIO
-  mvbool <- newMVar True
-  _ <-
-    catch
+  eUnit <-
+    try
       ( void $
           BPC.runInsert connectDB $
             insert
@@ -166,10 +164,8 @@ createCategory logger connectDB categoryRoot vCategoryName = do
                   ]
               )
       )
-      (\sqlE -> putMVar mvbool False >> handler sqlE >> throwIO (err401 {errBody = "Login exist."}))
-  b <- takeMVar mvbool
-  if b
-    then do
+  case eUnit of
+    (Right _) -> do
       _ <-
         BPC.runUpdate connectDB $
           Beam.update
@@ -180,7 +176,7 @@ createCategory logger connectDB categoryRoot vCategoryName = do
             )
             (\cat -> _categoryCategoryName cat ==. val_ categoryRoot)
       return ()
-    else return ()
+    (Left sqlE) -> handler sqlE >> throwIO (err401 {errBody = "Category exist."})
   where
     handler :: SqlError -> IO ()
     handler exc = do

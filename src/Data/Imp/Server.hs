@@ -15,6 +15,7 @@ where
 import API.Server.Web
 import Control.Logger ((.<))
 import qualified Control.Logger as Logger
+import Control.Exception
 import Control.Monad
 import Control.Monad.Error.Class
 import qualified Control.Server as Server
@@ -78,15 +79,14 @@ serverContext ::
 serverContext hServer = authcheck hServer :. EmptyContext
 
 serverT ::
-  (MonadIO m1, MonadIO m2, MonadIO m3, MonadIO m4) =>
   Server.Handle IO ->
-  GetNewsPublic m1
+  GetNewsPublic Servant.Handler
     :<|> ( ( UserPublic -> GetNewsPrivate Servant.Handler
            )
              :<|> ( ( UserPublic ->
-                      CategoryCreate m2
+                      CategoryCreate Servant.Handler
                     )
-                      :<|> ( CategoryGetTree m3
+                      :<|> ( CategoryGetTree Servant.Handler
                                :<|> ( ( UserPublic ->
                                         CategoryChange Servant.Handler
                                       )
@@ -97,7 +97,7 @@ serverT ::
                                                           :<|> ( ( UserPublic ->
                                                                    UserCreate Servant.Handler
                                                                  )
-                                                                   :<|> ( UserList m4
+                                                                   :<|> ( UserList Servant.Handler
                                                                             :<|> PhotoGet Servant.Handler
                                                                         )
                                                                )
@@ -120,9 +120,8 @@ serverT sh =
     :<|> photoGetS sh
 
 getNewsPublicS ::
-  MonadIO m =>
   Server.Handle IO ->
-  GetNewsPublic m
+  GetNewsPublic Servant.Handler
 getNewsPublicS hServer mDayAt' mDayUntil' mDaySince' mAothor' mCategory' mNewsUUID' mNewsNam' mContent' mForString' mSortBy' mOffSet' mLimit' =
   liftIO $
     Server.handleServerFind
@@ -142,17 +141,22 @@ getNewsPrivateS hServer bad mDayAt' mDayUntil' mDaySince' mCategory' mNewsUUID' 
       (Search mDayAt' mDayUntil' mDaySince' (Just $ nameUser bad) mCategory' mNewsUUID' mNewsNam' mContent' mForString' mFlagPublished' mSortBy' mOffSet' mLimit')
 
 categoryCreateS ::
-  MonadIO m =>
   Server.Handle IO ->
   UserPublic ->
   Maybe Category ->
   Maybe Category ->
-  m NewsCategory
-categoryCreateS hServer userPub (Just categoryRoot) (Just categoryName) =
-  liftIO $ Server.handleCategoryCreate hServer userPub categoryRoot categoryName
+  Servant.Handler NewsCategory
+categoryCreateS hServer userPub (Just categoryRoot) (Just categoryName) = do
+  eNCategory <- liftIO $ try $ Server.handleCategoryCreate hServer userPub categoryRoot categoryName
+  case eNCategory of
+    (Right a) -> return a
+    (Left err) -> throwError err
 categoryCreateS hServer _ _ _ = do
   liftIO $ Logger.logError (Server.handleLogger hServer) "categoryCreate: parametrs not Just"
-  liftIO $ Server.handleCategoryGet hServer
+  eNCategory <- liftIO $ try $ Server.handleCategoryGet hServer
+  case eNCategory of
+    (Right a) -> return a
+    (Left err) -> throwError err
 
 categoryGetS :: MonadIO m => Server.Handle IO -> m NewsCategory
 categoryGetS hServer = liftIO $ Server.handleCategoryGet hServer
@@ -257,11 +261,10 @@ userCreateS hServer _ _ _ _ _ _ = do
       }
 
 userListS ::
-  MonadIO m =>
   Server.Handle IO ->
   Maybe OffSet ->
   Maybe Limit ->
-  m [UserPublic]
+  Servant.Handler [UserPublic]
 userListS hServer mOffSet' mLimit' = liftIO $ Server.handleUserList hServer (fromMaybe 0 mOffSet') (fromMaybe 0 mLimit')
 
 photoGetS :: Server.Handle IO -> Maybe Photo -> Servant.Handler Base64
