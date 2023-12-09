@@ -39,7 +39,6 @@ import Network.Wai.Handler.Warp as Warp
 import Servant.API
 import Servant.Server as Servant
 import System.Posix.Signals
-import Control.Concurrent.MVar
 import Control.Exception
 import Control.Monad.Except
 
@@ -240,14 +239,12 @@ userCreateS ::
   Maybe FlagAdmin ->
   Servant.Handler UserPublic
 userCreateS hServer userPub (Just name) (Just login) (Just password) (Just flagMakeNews) (Just flagAdmin) = do
-  mvCatch <- liftIO (newEmptyMVar @ServerError)
-  mUserPub <- (Servant.Handler . ExceptT . (\io-> catch io (\e-> (return Nothing) <$ putMVar mvCatch e)) .runExceptT . runHandler')
+  eUserPub <- (Servant.Handler . ExceptT . try .runExceptT . runHandler')
     (handleErrorAuthorization hServer $
       Server.handleUserCreate hServer userPub name login password flagMakeNews flagAdmin)
-  mSError <- liftIO $ tryTakeMVar mvCatch
-  case (mUserPub,mSError) of
-    (Just userPub', _) -> return userPub'
-    (_, Just serverErr) -> throwError serverErr
+  case eUserPub of
+    (Right (Just userPub')) -> return userPub'
+    (Left serverErr) -> throwError serverErr
     _ -> do
       liftIO $ Logger.logError (Server.handleLogger hServer) "userCreate: creator not admin"
       throwError $
