@@ -36,6 +36,7 @@ library
       Data.Imp.Database
       Data.Imp.Migration
       Data.Imp.OldDataBase.Database
+      Data.Imp.OldDataBase.DatabaseMk1
       Data.Imp.Server
       Data.Imp.Server.Authorization
       Data.Imp.Server.Category

@@ -39,7 +39,6 @@ import Network.Wai.Handler.Warp as Warp
 import Servant.API
 import Servant.Server as Servant
 import System.Posix.Signals
-import Control.Exception
 import Control.Monad.Except
 
 data Config = Config

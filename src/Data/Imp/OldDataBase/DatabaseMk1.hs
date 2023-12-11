@@ -4,7 +4,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Data.Imp.Database
+module Data.Imp.OldDataBase.DatabaseMk1
   ( webServerDB,
     UserT (..),
     NewsT (..),
@@ -27,6 +27,7 @@ import Data.ByteString
 import Data.Time.Calendar.OrdinalDate
 import Data.Types
 import Data.UUID
+import Data.Vector
 import Database.Beam as Beam
 import Prelude as P
 import Data.Aeson as A
@@ -141,7 +142,8 @@ instance Table NewsT where
 data CategoryT f = CategoryT
   { _categoryUuidCategory :: Columnar f UUID,
     _categoryCategoryName :: Columnar f Category,
-    _categoryParent :: Columnar f Category
+    _categoryParent :: Columnar f Category,
+    _categoryChild :: Columnar f (Vector Category)
   }
   deriving (Generic, Beamable)
 
@@ -150,7 +152,8 @@ categoryName category =
   CategoryT
     { _categoryUuidCategory = undefined,
       _categoryCategoryName = category,
-      _categoryParent = undefined
+      _categoryParent = undefined,
+      _categoryChild = undefined
     }
 
 type CategoryTId = CategoryT Identity

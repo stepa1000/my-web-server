@@ -17,7 +17,6 @@ import Data.Text
 import Data.Tree as Tree
 import Data.Types
 import Data.Utils
-import Data.Vector as V
 import Database.Beam.Postgres
 import Database.Beam.Postgres.Conduit as BPC
 import Database.Beam.Query as Beam
@@ -59,9 +58,7 @@ changeCategory ::
   IO ()
 changeCategory logger connectDB categoryOld mCategoryParent mCategoryName = do
   Logger.logInfo logger "Change category"
-  mcategoryT <- getCategory logger connectDB categoryOld
-  _ <-
-    BPC.runUpdate connectDB $
+  void $ BPC.runUpdate connectDB $
       Beam.updateTable
         (dbCategory webServerDB)
         ( CategoryT
@@ -73,43 +70,10 @@ changeCategory logger connectDB categoryOld mCategoryParent mCategoryName = do
               _categoryParent =
                 toUpdatedValueMaybe $
                   const $
-                    fmap val_ mCategoryParent,
-              _categoryChild = toOldValue
+                    fmap val_ mCategoryParent
             }
         )
         (\cat2 -> _categoryCategoryName cat2 ==. val_ categoryOld)
-  P.mapM_
-    ( \(categoryParent, categoryT) ->
-        do
-          _ <-
-            BPC.runUpdate connectDB $
-              Beam.updateTable
-                (dbCategory webServerDB)
-                ( CategoryT
-                    { _categoryUuidCategory = toOldValue,
-                      _categoryCategoryName = toOldValue,
-                      _categoryParent = toOldValue,
-                      _categoryChild = toUpdatedValue $
-                        \v -> arrayRemove (_categoryChild v) (val_ categoryOld)
-                    }
-                )
-                (\cat2 -> _categoryCategoryName cat2 ==. val_ (_categoryParent categoryT))
-          _ <-
-            BPC.runUpdate connectDB $
-              Beam.updateTable
-                (dbCategory webServerDB)
-                ( CategoryT
-                    { _categoryUuidCategory = toOldValue,
-                      _categoryCategoryName = toOldValue,
-                      _categoryParent = toOldValue,
-                      _categoryChild = toUpdatedValue $
-                        \v -> concatV_ (_categoryChild v) (val_ $ V.singleton categoryOld)
-                    }
-                )
-                (\cat2 -> _categoryCategoryName cat2 ==. val_ categoryParent)
-          return ()
-    )
-    (mCategoryParent >>= (\x -> (,) x <$> mcategoryT))
 
 -- | Initializing the most common category or the first vertex of the tree.
 --
@@ -132,8 +96,7 @@ initNewsCategory logger connectDB category = do
                 [ CategoryT
                     { _categoryUuidCategory = ruuid,
                       _categoryCategoryName = category,
-                      _categoryParent = "",
-                      _categoryChild = V.empty
+                      _categoryParent = ""
                     }
                 ]
             )
@@ -158,24 +121,13 @@ createCategory logger connectDB categoryRoot vCategoryName = do
                   [ CategoryT
                       { _categoryUuidCategory = ruuid,
                         _categoryCategoryName = vCategoryName,
-                        _categoryParent = categoryRoot,
-                        _categoryChild = V.empty
+                        _categoryParent = categoryRoot
                       }
                   ]
               )
       )
   case eUnit of
-    (Right _) -> do
-      _ <-
-        BPC.runUpdate connectDB $
-          Beam.update
-            (dbCategory webServerDB)
-            ( \cat ->
-                _categoryChild cat
-                  <-. concatV_ (current_ (_categoryChild cat)) (val_ $ V.singleton vCategoryName)
-            )
-            (\cat -> _categoryCategoryName cat ==. val_ categoryRoot)
-      return ()
+    (Right _) -> return ()
     (Left sqlE) -> handler sqlE >> throwIO (err401 {errBody = "Category exist."})
   where
     handler :: SqlError -> IO ()
@@ -196,8 +148,12 @@ getNewsCategory logger connectDB category = do
   maybeCategory <- getCategory logger connectDB category
   case maybeCategory of
     (Just categoryT) -> do
-      vCategory <- V.catMaybes <$> P.mapM (getNewsCategory logger connectDB) (_categoryChild categoryT)
-      return $ Just $ Node category (V.toList vCategory)
+      lNameCategory <- listStreamingRunSelect connectDB $ select $ do
+        s <- Beam.all_ (dbCategory webServerDB) 
+        guard_ $ (val_ $ _categoryCategoryName categoryT) ==. (_categoryParent s)
+        pure $ _categoryCategoryName s
+      lCategory <- Maybe.catMaybes <$> P.mapM (getNewsCategory logger connectDB) lNameCategory
+      return $ Just $ Node category lCategory
     Nothing -> return Nothing
 
 getCategory :: Logger.Handle IO -> Connection -> Category -> IO (Maybe CategoryTId)
