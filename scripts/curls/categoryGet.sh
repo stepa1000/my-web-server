@@ -2,4 +2,4 @@
 
 set -eu
 
-curl -i -v -sS 'http://localhost:3000/category/get_tree'
+curl -i -v -sS 'http://localhost:5435/category/get_tree'

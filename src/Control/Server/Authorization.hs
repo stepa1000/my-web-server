@@ -12,7 +12,9 @@ module Control.Server.Authorization
   )
 where
 
+import Control.Monad
 import Control.Monad.Catch
+import Data.Maybe
 import Data.Typeable
 import Data.Types
 import Data.User
@@ -35,13 +37,13 @@ data ErrorAuthorization
   | ErrorCreatorNewsCheck
   deriving (Typeable, Show, Eq, Exception)
 
-handleCreatInitAdmin :: Monad m => Handle m -> Login -> Password -> FlagMakeNews -> m (Maybe UserPublic)
+handleCreatInitAdmin :: Monad m => Handle m -> Login -> Password -> FlagMakeNews -> m UserPublic
 handleCreatInitAdmin auth login password flagMNews = do
-  lUser <- hUserList auth 0 0
-  case lUser of
-    [] -> Just <$> hCreateUser auth login login password flagMNews True
-    _ -> return Nothing
-
+  mUser <- hGetAccount auth login
+  case mUser of
+    Nothing -> hCreateUser auth login login password flagMNews True
+    (Just getUser) -> return getUser
+    
 handleCatchErrorAuthorization :: Monad m => Handle m -> m a -> m (Either ErrorAuthorization a)
 handleCatchErrorAuthorization auth mact = hCatchErrorAuthorization auth (fmap Right mact) (return . Left)
 

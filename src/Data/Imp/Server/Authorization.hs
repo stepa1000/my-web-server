@@ -14,8 +14,9 @@ module Data.Imp.Server.Authorization
 where
 
 import Conduit
+import Control.Exception
 import qualified Control.Logger as Logger
-import Control.Monad.Catch
+import Control.Monad
 import qualified Control.Server.Authorization as ServerAuthorization
 import Crypto.Hash
 import Data.Binary as Binary
@@ -33,6 +34,7 @@ import Data.Yaml
 import Database.Beam
 import Database.Beam.Postgres as Beam
 import Database.Beam.Postgres.Conduit as BPC
+import Servant.Server
 import Prelude as P
 
 newtype Config = Config
@@ -128,40 +130,41 @@ userTToUserPublic userT =
 hCreateUser :: Logger.Handle IO -> Connection -> Name -> Login -> Password -> FlagMakeNews -> FlagAdmin -> IO UserPublic
 hCreateUser logger connectDB name login password flagMNews flagAdmin = do
   Logger.logInfo logger "Create user"
-  lUserT <- listStreamingRunSelect connectDB $ lookup_ (dbUser webServerDB) (primaryKey $ loginUserT login)
-  case lUserT of
-    [] -> do
-      (UTCTime day _) <- getCurrentTime
-      _ <-
-        BPC.runInsert connectDB $
-          insert (dbUser webServerDB) $
-            insertValues
-              [ UserT
-                  { _userName = name,
-                    _userLogin = login,
-                    _userPasswordHash = getHash password,
-                    _userDateCreation = day,
-                    _userAdmin = flagAdmin,
-                    _userMakeNews = flagMNews
-                  }
-              ]
-      return $
-        UserPublic
-          { nameUser = name,
-            loginUser = login,
-            dateCreationUser = day,
-            adminUser = flagAdmin,
-            makeNewsUser = flagMNews
-          }
-    (x : _) -> do
-      return $
-        UserPublic
-          { nameUser = _userName x,
-            loginUser = _userLogin x,
-            dateCreationUser = _userDateCreation x,
-            adminUser = _userAdmin x,
-            makeNewsUser = _userMakeNews x
-          }
+  (UTCTime day _) <- getCurrentTime
+  _ <-
+    catch
+      ( void $
+          BPC.runInsert connectDB $
+            insert (dbUser webServerDB) $
+              insertValues
+                [ UserT
+                    { _userName = name,
+                      _userLogin = login,
+                      _userPasswordHash = getHash password,
+                      _userDateCreation = day,
+                      _userAdmin = flagAdmin,
+                      _userMakeNews = flagMNews
+                    }
+                ]
+      )
+      (const (throwIO $ err401 {errBody = "Login exist."}) . handler)
+  return $
+    UserPublic
+      { nameUser = name,
+        loginUser = login,
+        dateCreationUser = day,
+        adminUser = flagAdmin,
+        makeNewsUser = flagMNews
+      }
+  where
+    handler :: SqlError -> IO ()
+    handler exc = do
+      Logger.logWarning logger $ "Unique violation for: " Logger..< login
+      Logger.logError logger $ "Exception: " <> (Data.Text.pack . show $ sqlState exc)
+      return ()
+--    errorsLog =
+--      const (throwIO $ err401 {errBody = "Login exist."})
+--        . const (Logger.logWarning logger "Login exist.")
 
 getHash :: Text -> ByteString
 getHash = convert . hashlazy @SHA256 . Binary.encode
