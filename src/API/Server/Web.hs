@@ -87,8 +87,8 @@ type API =
       :> Get '[JSON] [News]
     :<|> "category"
       :> "create"
-      :> BasicAuth "user" UserPublic -- realms ???
-      :> QueryParam' '[Strict] "root" Category
+      :> BasicAuth "user" UserPublic
+      :> QueryParam "root" Category
       :> QueryParam' '[Strict] "category_name" Category
       :> Get '[JSON] NewsCategory
     :<|> "category" :> "get_tree" :> Get '[JSON] NewsCategory
