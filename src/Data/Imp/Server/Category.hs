@@ -111,24 +111,30 @@ createCategory :: Logger.Handle IO -> Connection -> Category -> Category -> IO (
 createCategory logger connectDB categoryRoot vCategoryName = do
   Logger.logInfo logger "Create category"
   ruuid <- randomIO
-  eUnit <-
-    try
-        ( void $
-            BPC.runInsert connectDB $
-              insert
-                (dbCategory webServerDB)
-                ( insertValues
-                    [ CategoryT
-                        { _categoryUuidCategory = ruuid,
-                          _categoryCategoryName = vCategoryName,
-                          _categoryParent = categoryRoot
-                        }
-                    ]
-                )
-        )
-  case eUnit of
-    (Right _) -> return ()
-    (Left sqlE) -> handler sqlE >> throwIO (err401 {errBody = "Category exist."})
+  mCategoryRoot <- getCategory logger connectDB categoryRoot
+  case (guard $ categoryRoot /= "") >> mCategoryRoot of
+    (Just _) -> do
+      eUnit <-
+        try
+          ( void $
+              BPC.runInsert connectDB $
+                insert
+                  (dbCategory webServerDB)
+                  ( insertValues
+                      [ CategoryT
+                          { _categoryUuidCategory = ruuid,
+                            _categoryCategoryName = vCategoryName,
+                            _categoryParent = categoryRoot
+                          }
+                      ]
+                  )
+          )
+      case eUnit of
+        (Right _) -> return ()
+        (Left sqlE) -> handler sqlE >> throwIO (err401 {errBody = "Category exist."})
+    _ -> do
+      Logger.logWarning logger $ "Category root not exist: " Logger..< categoryRoot
+      throwIO (err401 {errBody = "Category root not exist."})
   where
     handler :: SomeException -> IO ()
     handler exc = do

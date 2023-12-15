@@ -153,12 +153,12 @@ categoryCreateS hServer userPub (Just categoryRoot) (Just categoryName) = do
   case eNCategory of
     (Right a) -> return a
     (Left err) -> throwError err
+categoryCreateS hServer _ Nothing _ = do
+  liftIO $ Logger.logError (Server.handleLogger hServer) "categoryCreate: parametrs not Just"
+  throwError (err401 {errBody = "Category root not exist."})
 categoryCreateS hServer _ _ _ = do
   liftIO $ Logger.logError (Server.handleLogger hServer) "categoryCreate: parametrs not Just"
-  eNCategory <- liftIO $ try $ Server.handleCategoryGet hServer
-  case eNCategory of
-    (Right a) -> return a
-    (Left err) -> throwError err
+  throwError (err401 {errBody = "categoryCreate: parametrs not Just"})
 
 categoryGetS :: MonadIO m => Server.Handle IO -> m NewsCategory
 categoryGetS hServer = liftIO $ Server.handleCategoryGet hServer
