@@ -33,45 +33,6 @@ packages:
   original:
     commit: adf9dd03d299a5b5ee1907fe2a63c9459a6f9a73
     git: https://github.com/bos/suffixtree
-- completed:
-    commit: 59bed8032f7b006f115389fae4124913be61dd73
-    git: https://github.com/stepa1000/beam
-    name: beam-core
-    pantry-tree:
-      sha256: 0dd97b62e85384ba85beb930071ad816b1e7eb1445344434f7d9318b9af9a1ad
-      size: 2705
-    subdir: beam-core
-    version: 0.10.0.0
-  original:
-    commit: 59bed8032f7b006f115389fae4124913be61dd73
-    git: https://github.com/stepa1000/beam
-    subdir: beam-core
-- completed:
-    commit: 59bed8032f7b006f115389fae4124913be61dd73
-    git: https://github.com/stepa1000/beam
-    name: beam-migrate
-    pantry-tree:
-      sha256: d18af47f014eb7225d260b6ec2024983d2df3a2888261aef5af2f7a4e760748b
-      size: 1826
-    subdir: beam-migrate
-    version: 0.5.2.0
-  original:
-    commit: 59bed8032f7b006f115389fae4124913be61dd73
-    git: https://github.com/stepa1000/beam
-    subdir: beam-migrate
-- completed:
-    commit: 59bed8032f7b006f115389fae4124913be61dd73
-    git: https://github.com/stepa1000/beam
-    name: beam-postgres
-    pantry-tree:
-      sha256: 79182e68d81b05c1af9e5a71d4af83f2f41f18fa9432dfbc36274c37c980a2ef
-      size: 2597
-    subdir: beam-postgres
-    version: 0.5.3.0
-  original:
-    commit: 59bed8032f7b006f115389fae4124913be61dd73
-    git: https://github.com/stepa1000/beam
-    subdir: beam-postgres
 snapshots:
 - completed:
     sha256: e019cd29e3f7f9dbad500225829a3f7a50f73c674614f2f452e21bb8bf5d99ea

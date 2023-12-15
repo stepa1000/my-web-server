@@ -113,27 +113,27 @@ createCategory logger connectDB categoryRoot vCategoryName = do
   ruuid <- randomIO
   eUnit <-
     try
-      ( void $
-          BPC.runInsert connectDB $
-            insert
-              (dbCategory webServerDB)
-              ( insertValues
-                  [ CategoryT
-                      { _categoryUuidCategory = ruuid,
-                        _categoryCategoryName = vCategoryName,
-                        _categoryParent = categoryRoot
-                      }
-                  ]
-              )
-      )
+        ( void $
+            BPC.runInsert connectDB $
+              insert
+                (dbCategory webServerDB)
+                ( insertValues
+                    [ CategoryT
+                        { _categoryUuidCategory = ruuid,
+                          _categoryCategoryName = vCategoryName,
+                          _categoryParent = categoryRoot
+                        }
+                    ]
+                )
+        )
   case eUnit of
     (Right _) -> return ()
     (Left sqlE) -> handler sqlE >> throwIO (err401 {errBody = "Category exist."})
   where
-    handler :: SqlError -> IO ()
+    handler :: SomeException -> IO ()
     handler exc = do
       Logger.logWarning logger $ "Unique violation for: " Logger..< vCategoryName
-      Logger.logError logger $ "Exception: " <> (Data.Text.pack . show $ sqlState exc)
+      Logger.logError logger $ "Exception: " <> (Data.Text.pack $ show exc)
       return ()
 
 -- | Taking the full tree of news categories.
@@ -163,4 +163,6 @@ getCategory logger connectDB category = do
   return $ listToMaybe l
 
 createCategoryWarn :: Logger.Handle IO -> Category -> IO ()
-createCategoryWarn logger category = Logger.logInfo logger $ "Category is exist: " Logger..< category
+createCategoryWarn logger category = do
+  Logger.logInfo logger $ "Category is exist: " Logger..< category
+  throwIO (err401 {errBody = "Category exist."})
