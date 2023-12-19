@@ -153,9 +153,12 @@ categoryCreateS hServer userPub (Just categoryRoot) (Just categoryName) = do
   case eNCategory of
     (Right a) -> return a
     (Left err) -> throwError err
-categoryCreateS hServer _ Nothing _ = do
-  liftIO $ Logger.logError (Server.handleLogger hServer) "categoryCreate: parametrs not Just"
-  throwError (err401 {errBody = "Category root not exist."})
+categoryCreateS hServer userPub Nothing (Just categoryName) = do
+  liftIO $ Logger.logWarning (Server.handleLogger hServer) "categoryCreate: category root not Just"
+  eNCategory <- liftIO $ try $ Server.handleCategoryCreate hServer userPub "General" categoryName
+  case eNCategory of
+    (Right a) -> return a
+    (Left err) -> throwError err
 categoryCreateS hServer _ _ _ = do
   liftIO $ Logger.logError (Server.handleLogger hServer) "categoryCreate: parametrs not Just"
   throwError (err401 {errBody = "categoryCreate: parametrs not Just"})
