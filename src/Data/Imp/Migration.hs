@@ -17,6 +17,7 @@ import Control.Arrow
 import Data.Config
 import Data.Imp.Database
 import qualified Data.Imp.OldDataBase.Database as Old
+import qualified Data.Imp.OldDataBase.DatabaseMk1 as OldMk1
 import qualified Data.Imp.Server as Server
 import Database.Beam.Migrate
 import Database.Beam.Migrate.Simple
@@ -140,7 +141,7 @@ addUUIDsfromNewsCategory ::
   MigrationSteps
     Postgres
     (CheckedDatabaseSettings Postgres Old.WebServerDB)
-    (CheckedDatabaseSettings Postgres WebServerDB)
+    (CheckedDatabaseSettings Postgres OldMk1.WebServerDB)
 addUUIDsfromNewsCategory =
   migrationStep
     "add uuid from News and add Category"
@@ -148,7 +149,7 @@ addUUIDsfromNewsCategory =
         newsTabl' <- alterTable newsTabl $ \a -> do
           newsUUIDNews <- addColumn $ field "uuid_news" uuid notNull unique
           return $
-            NewsT
+            OldMk1.NewsT
               newsUUIDNews
               (Old._newsNewsName a)
               (Old._newsLoginAuthor a)
@@ -160,36 +161,83 @@ addUUIDsfromNewsCategory =
               (Old._newsPublic a)
         photoTabl' <- alterTable photoTabl $ \a -> do
           uuidPhoto <- renameColumnTo "uuid_photo" (Old._photoUuid a)
-          return $ PhotoT uuidPhoto (Old._photoData a)
+          return $ OldMk1.PhotoT uuidPhoto (Old._photoData a)
         catTabl <-
           createTable "category" $
-            CategoryT
-              { _categoryUuidCategory =
+            OldMk1.CategoryT
+              { OldMk1._categoryUuidCategory =
                   field
                     "uuid_category"
                     uuid
                     notNull
                     unique,
-                _categoryCategoryName =
+                OldMk1._categoryCategoryName =
                   field
                     "category_name"
                     text
                     notNull,
-                _categoryParent =
+                OldMk1._categoryParent =
                   field
                     "parent"
                     text,
-                _categoryChild =
+                OldMk1._categoryChild =
                   field
                     "child"
                     (unboundedArray text)
               }
         return $
-          WebServerDB
+          OldMk1.WebServerDB
             (unsafeCoerce userTabl)
             newsTabl'
             photoTabl'
             catTabl
+    )
+
+addUniqueForCategoryName ::
+  MigrationSteps
+    Postgres
+    (CheckedDatabaseSettings Postgres OldMk1.WebServerDB)
+    (CheckedDatabaseSettings Postgres OldMk1.WebServerDB)
+addUniqueForCategoryName =
+  migrationStep
+    "add unique for category name"
+    ( \(OldMk1.WebServerDB userTabl newsTabl photoTabl categoryTabl) -> do
+        categoryTabl' <- alterTable categoryTabl $ \a -> do
+          dropColumn $ OldMk1._categoryCategoryName a
+          categoryNameColumn <-
+            addColumn $
+              field
+                "category_name"
+                text
+                unique
+          return $
+            OldMk1.CategoryT
+              { OldMk1._categoryUuidCategory = OldMk1._categoryUuidCategory a,
+                OldMk1._categoryCategoryName = categoryNameColumn,
+                OldMk1._categoryParent = OldMk1._categoryParent a,
+                OldMk1._categoryChild = OldMk1._categoryChild a
+              }
+        return $ OldMk1.WebServerDB userTabl newsTabl photoTabl categoryTabl'
+    )
+
+deleteChaildsForCategory ::
+  MigrationSteps
+    Postgres
+    (CheckedDatabaseSettings Postgres OldMk1.WebServerDB)
+    (CheckedDatabaseSettings Postgres WebServerDB)
+deleteChaildsForCategory =
+  migrationStep
+    "delete chailds for category"
+    ( \(OldMk1.WebServerDB userTabl newsTabl photoTabl categoryTabl) -> do
+        categoryTabl' <- alterTable categoryTabl $ \a -> do
+          dropColumn $ OldMk1._categoryChild a
+          return $
+            CategoryT
+              { _categoryUuidCategory = OldMk1._categoryUuidCategory a,
+                _categoryCategoryName = OldMk1._categoryCategoryName a,
+                _categoryParent = OldMk1._categoryParent a
+              }
+        return $ WebServerDB (unsafeCoerce userTabl) (unsafeCoerce newsTabl) (unsafeCoerce photoTabl) categoryTabl'
     )
 
 allowDestructive :: (MonadFail m) => BringUpToDateHooks m
@@ -206,7 +254,7 @@ migrateDB conn =
     bringUpToDateWithHooks
       allowDestructive
       PG.migrationBackend
-      (addUUIDsfromNewsCategory <<< initialSetupStep)
+      (deleteChaildsForCategory <<< addUniqueForCategoryName <<< addUUIDsfromNewsCategory <<< initialSetupStep)
 
 migrateDBServer :: Server.Config -> IO (Maybe (CheckedDatabaseSettings Postgres WebServerDB))
 migrateDBServer s = do

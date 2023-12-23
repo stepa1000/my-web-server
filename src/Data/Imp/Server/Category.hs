@@ -7,19 +7,21 @@ module Data.Imp.Server.Category
   )
 where
 
+import Control.Exception
 import qualified Control.Logger as Logger
 import Control.Monad
 import qualified Control.Server.Category as Category
 import Data.Imp.Database
 import Data.Maybe as Maybe
+import Data.Text
 import Data.Tree as Tree
 import Data.Types
 import Data.Utils
-import Data.Vector as V
 import Database.Beam.Postgres
 import Database.Beam.Postgres.Conduit as BPC
 import Database.Beam.Query as Beam
 import Database.Beam.Schema.Tables
+import Servant.Server
 import System.Random
 import Prelude as P
 
@@ -36,7 +38,8 @@ withHandle logger connectDB act = do
     Category.Handle
       { Category.hGetCategory = fromMaybe (Node "" []) <$> getNewsCategory logger connectDB "General",
         Category.hChangeCategory = changeCategory logger connectDB,
-        Category.hCreateCategory = createCategory logger connectDB
+        Category.hCreateCategory = createCategory logger connectDB,
+        Category.hCreateCategoryWarn = createCategoryWarn logger
       }
 
 -- | change the ancestor of a category or name.
@@ -55,9 +58,7 @@ changeCategory ::
   IO ()
 changeCategory logger connectDB categoryOld mCategoryParent mCategoryName = do
   Logger.logInfo logger "Change category"
-  mcategoryT <- getCategory logger connectDB categoryOld
-  _ <-
-    BPC.runUpdate connectDB $
+  void $ BPC.runUpdate connectDB $
       Beam.updateTable
         (dbCategory webServerDB)
         ( CategoryT
@@ -69,43 +70,10 @@ changeCategory logger connectDB categoryOld mCategoryParent mCategoryName = do
               _categoryParent =
                 toUpdatedValueMaybe $
                   const $
-                    fmap val_ mCategoryParent,
-              _categoryChild = toOldValue
+                    fmap val_ mCategoryParent
             }
         )
         (\cat2 -> _categoryCategoryName cat2 ==. val_ categoryOld)
-  P.mapM_
-    ( \(categoryParent, categoryT) ->
-        do
-          _ <-
-            BPC.runUpdate connectDB $
-              Beam.updateTable
-                (dbCategory webServerDB)
-                ( CategoryT
-                    { _categoryUuidCategory = toOldValue,
-                      _categoryCategoryName = toOldValue,
-                      _categoryParent = toOldValue,
-                      _categoryChild = toUpdatedValue $
-                        \v -> arrayRemove (_categoryChild v) (val_ categoryOld)
-                    }
-                )
-                (\cat2 -> _categoryCategoryName cat2 ==. val_ (_categoryParent categoryT))
-          _ <-
-            BPC.runUpdate connectDB $
-              Beam.updateTable
-                (dbCategory webServerDB)
-                ( CategoryT
-                    { _categoryUuidCategory = toOldValue,
-                      _categoryCategoryName = toOldValue,
-                      _categoryParent = toOldValue,
-                      _categoryChild = toUpdatedValue $
-                        \v -> concatV_ (_categoryChild v) (val_ $ V.singleton categoryOld)
-                    }
-                )
-                (\cat2 -> _categoryCategoryName cat2 ==. val_ categoryParent)
-          return ()
-    )
-    (mCategoryParent >>= (\x -> (,) x <$> mcategoryT))
 
 -- | Initializing the most common category or the first vertex of the tree.
 --
@@ -128,8 +96,7 @@ initNewsCategory logger connectDB category = do
                 [ CategoryT
                     { _categoryUuidCategory = ruuid,
                       _categoryCategoryName = category,
-                      _categoryParent = "",
-                      _categoryChild = V.empty
+                      _categoryParent = ""
                     }
                 ]
             )
@@ -143,30 +110,37 @@ initNewsCategory logger connectDB category = do
 createCategory :: Logger.Handle IO -> Connection -> Category -> Category -> IO ()
 createCategory logger connectDB categoryRoot vCategoryName = do
   Logger.logInfo logger "Create category"
-  _ <-
-    BPC.runUpdate connectDB $
-      Beam.update
-        (dbCategory webServerDB)
-        ( \cat ->
-            _categoryChild cat
-              <-. concatV_ (current_ (_categoryChild cat)) (val_ $ V.singleton vCategoryName)
-        )
-        (\cat -> _categoryCategoryName cat ==. val_ categoryRoot)
   ruuid <- randomIO
-  _ <-
-    BPC.runInsert connectDB $
-      insert
-        (dbCategory webServerDB)
-        ( insertValues
-            [ CategoryT
-                { _categoryUuidCategory = ruuid,
-                  _categoryCategoryName = vCategoryName,
-                  _categoryParent = categoryRoot,
-                  _categoryChild = V.empty
-                }
-            ]
-        )
-  return ()
+  mCategoryRoot <- getCategory logger connectDB categoryRoot
+  case (guard $ categoryRoot /= "") >> mCategoryRoot of
+    (Just _) -> do
+      eUnit <-
+        try
+          ( void $
+              BPC.runInsert connectDB $
+                insert
+                  (dbCategory webServerDB)
+                  ( insertValues
+                      [ CategoryT
+                          { _categoryUuidCategory = ruuid,
+                            _categoryCategoryName = vCategoryName,
+                            _categoryParent = categoryRoot
+                          }
+                      ]
+                  )
+          )
+      case eUnit of
+        (Right _) -> return ()
+        (Left sqlE) -> handler sqlE >> throwIO (err401 {errBody = "Category exist."})
+    _ -> do
+      Logger.logWarning logger $ "Category root not exist: " Logger..< categoryRoot
+      throwIO (err401 {errBody = "Category root not exist."})
+  where
+    handler :: SomeException -> IO ()
+    handler exc = do
+      Logger.logWarning logger $ "Unique violation for: " Logger..< vCategoryName
+      Logger.logError logger $ "Exception: " <> (Data.Text.pack $ show exc)
+      return ()
 
 -- | Taking the full tree of news categories.
 --
@@ -180,8 +154,12 @@ getNewsCategory logger connectDB category = do
   maybeCategory <- getCategory logger connectDB category
   case maybeCategory of
     (Just categoryT) -> do
-      vCategory <- V.catMaybes <$> P.mapM (getNewsCategory logger connectDB) (_categoryChild categoryT)
-      return $ Just $ Node category (V.toList vCategory)
+      lNameCategory <- listStreamingRunSelect connectDB $ select $ do
+        s <- Beam.all_ (dbCategory webServerDB) 
+        guard_ $ (val_ $ _categoryCategoryName categoryT) ==. (_categoryParent s)
+        pure $ _categoryCategoryName s
+      lCategory <- Maybe.catMaybes <$> P.mapM (getNewsCategory logger connectDB) lNameCategory
+      return $ Just $ Node category lCategory
     Nothing -> return Nothing
 
 getCategory :: Logger.Handle IO -> Connection -> Category -> IO (Maybe CategoryTId)
@@ -189,3 +167,8 @@ getCategory logger connectDB category = do
   Logger.logInfo logger "Get category parrent"
   l <- listStreamingRunSelect connectDB $ lookup_ (dbCategory webServerDB) (primaryKey $ categoryName category)
   return $ listToMaybe l
+
+createCategoryWarn :: Logger.Handle IO -> Category -> IO ()
+createCategoryWarn logger category = do
+  Logger.logInfo logger $ "Category is exist: " Logger..< category
+  throwIO (err401 {errBody = "Category exist."})
