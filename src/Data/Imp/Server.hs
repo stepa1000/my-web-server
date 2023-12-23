@@ -4,7 +4,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeApplications#-}
 
 module Data.Imp.Server
   ( Config (..),
