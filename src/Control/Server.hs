@@ -14,8 +14,6 @@ module Control.Server
   )
 where
 
--- import Servant.Server as Servant
-
 import qualified Control.Logger as Logger
 import qualified Control.Server.Authorization as ServerAuthorization
 import qualified Control.Server.Category as ServerCategory

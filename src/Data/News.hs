@@ -9,7 +9,6 @@ module Data.News
   )
 where
 
--- .Clock
 import Data.Aeson
 import Data.Time.Calendar.OrdinalDate
 import Data.Types
