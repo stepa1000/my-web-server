@@ -1,8 +1,18 @@
-## my-web-server
+# my-web-server
 
-# init project
+## init project
 
-run `stack build` and `stack exec my-web-server-exe`.
+Firstly we mast initialized data base. 
+
+For Linux:
+* `sudo -i -u postgres`
+* `psql`
+* `CREATE USER youruser WITH PASSWORD 'yourpassword';`
+* `CREATE DATABASE yourdatabase OWNER youruser;`
+
+Record user name and database name in config.
+
+Run `stack build` and `stack exec my-web-server-exe`.
 
 Folder with an example configuration file has already been created.
 * confLimit - maximum user watch
@@ -11,7 +21,7 @@ Folder with an example configuration file has already been created.
 * confLogger - configuration for logger
 * confMaxLimit - maximum news watch
 
-# Structure
+## Structure
 
 The project structure is divided into handler, implementation, servant api.
 

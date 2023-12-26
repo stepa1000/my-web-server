@@ -65,7 +65,7 @@ handleCategoryCreate ::
   Monad m =>
   Handle m ->
   UserPublic ->
-  Category -> -- is root
+  Category ->
   Category ->
   m NewsCategory
 handleCategoryCreate hServer userpublic categoryRoot category = do
@@ -112,7 +112,7 @@ handleServerEditNews ::
   UserPublic ->
   UUID ->
   Maybe Content ->
-  Maybe NameNews -> -- new
+  Maybe NameNews ->
   Maybe Category ->
   Maybe FlagPublished ->
   Vector Photo ->
