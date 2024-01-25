@@ -29,7 +29,6 @@ module Data.Types
 where
 
 import Data.Text
--- import Data.ByteString
 import Data.Time.Calendar.OrdinalDate
 import Data.Tree
 import Data.UUID

@@ -112,7 +112,7 @@ createCategory logger connectDB categoryRoot vCategoryName = do
   Logger.logInfo logger "Create category"
   ruuid <- randomIO
   mCategoryRoot <- getCategory logger connectDB categoryRoot
-  case (guard $ categoryRoot /= "") >> mCategoryRoot of
+  case guard (categoryRoot /= "") >> mCategoryRoot of
     (Just _) -> do
       eUnit <-
         try
@@ -139,7 +139,7 @@ createCategory logger connectDB categoryRoot vCategoryName = do
     handler :: SomeException -> IO ()
     handler exc = do
       Logger.logWarning logger $ "Unique violation for: " Logger..< vCategoryName
-      Logger.logError logger $ "Exception: " <> (Data.Text.pack $ show exc)
+      Logger.logError logger $ "Exception: " <> Data.Text.pack (show exc)
       return ()
 
 -- | Taking the full tree of news categories.
@@ -156,7 +156,7 @@ getNewsCategory logger connectDB category = do
     (Just categoryT) -> do
       lNameCategory <- listStreamingRunSelect connectDB $ select $ do
         s <- Beam.all_ (dbCategory webServerDB) 
-        guard_ $ (val_ $ _categoryCategoryName categoryT) ==. (_categoryParent s)
+        guard_ $ val_ (_categoryCategoryName categoryT) ==. _categoryParent s
         pure $ _categoryCategoryName s
       lCategory <- Maybe.catMaybes <$> P.mapM (getNewsCategory logger connectDB) lNameCategory
       return $ Just $ Node category lCategory

@@ -244,7 +244,7 @@ filterFlagPublished ::
   QGenExpr context Postgres s Bool
 filterFlagPublished (Just login) (Just flagPub) news =
   (_newsPublic news ==. val_ flagPub) &&. (_newsLoginAuthor news ==. val_ login)
-filterFlagPublished _ _ _ = val_ True -- ????????????????????????????
+filterFlagPublished _ _ _ = val_ True
 
 filterNewsName ::
   ( HaskellLiteralForQExpr (expr Bool) ~ Bool,

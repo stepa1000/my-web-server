@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -Wwarn #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
-module Data.Instance (ToJSON, FromJSON) where
+module Data.Instance (ToJSON, FromJSON, ConnectInfo) where
 
 import Data.Yaml
 import Database.Beam.Postgres as Beam

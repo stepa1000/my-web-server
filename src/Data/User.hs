@@ -8,9 +8,6 @@ module Data.User
   )
 where
 
--- import Data.Text
-
--- Clock
 import Data.Aeson
 import qualified Data.ByteString as B
 import Data.Time.Calendar.OrdinalDate
